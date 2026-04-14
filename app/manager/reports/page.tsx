@@ -4,6 +4,7 @@ import { getQuizStats, getQuizzes } from '@/lib/actions/quiz'
 import { getEmployees } from '@/lib/actions/manager'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   BarChart3,
   Users,
@@ -14,6 +15,8 @@ import {
   CheckCircle,
   XCircle,
   Target,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react'
 
 export default async function ManagerReportsPage() {
@@ -72,9 +75,19 @@ export default async function ManagerReportsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Reports &amp; Analytics</h1>
-        <p className="text-muted-foreground mt-1">Overview of quiz performance and employee engagement</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Reports &amp; Analytics</h1>
+          <p className="text-muted-foreground mt-1">Overview of quiz performance and employee engagement</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <a href="/api/reports/download" download>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Export All Reports
+            </a>
+          </Button>
+        </div>
       </div>
 
       {/* Overview Cards */}
@@ -156,6 +169,7 @@ export default async function ManagerReportsPage() {
                     <th className="text-left p-3 font-medium">Avg Score</th>
                     <th className="text-left p-3 font-medium">Pass Rate</th>
                     <th className="text-left p-3 font-medium">Status</th>
+                    <th className="text-left p-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -196,6 +210,17 @@ export default async function ManagerReportsPage() {
                           <Badge variant={quiz.is_active ? 'default' : 'secondary'} className="text-xs">
                             {quiz.is_active ? 'Active' : 'Inactive'}
                           </Badge>
+                        </td>
+                        <td className="p-3">
+                          {data && data.attempts > 0 ? (
+                            <Button variant="ghost" size="sm" asChild className="h-8 px-2">
+                              <a href={`/api/leaderboard/${quiz.id}/download`} download>
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
                         </td>
                       </tr>
                     )

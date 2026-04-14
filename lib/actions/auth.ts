@@ -61,8 +61,6 @@ export async function signIn(formData: FormData) {
     email = 'admin@hexaware.com'
   }
 
-  console.log('[Auth Debug] Signing in with:', email)
-
   const supabase = await createClient()
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -71,7 +69,6 @@ export async function signIn(formData: FormData) {
   })
 
   if (error) {
-    console.error('[Auth Debug] Sign-in error:', error.message)
     return { error: error.message }
   }
 
