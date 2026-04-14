@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { updateQuiz, updateQuestion, deleteQuestion, createQuestion } from '@/lib/actions/quiz'
 import type { Quiz, Question, DifficultyLevel, CreateQuestionInput } from '@/lib/types/database'
 import { Save, Trash2, Plus, CheckCircle2, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { ContentQuestionGenerator } from './content-question-generator'
 
 const DIFFICULTIES: DifficultyLevel[] = ['easy', 'medium', 'hard', 'advanced', 'hardcore']
 
@@ -246,6 +247,17 @@ export function QuizEditor({ quiz: initialQuiz, questions: initialQuestions }: Q
         </CardContent>
       </Card>
 
+      {/* AI Content-Based Question Generator */}
+      <ContentQuestionGenerator
+        quizId={quiz.id}
+        quizTopic={quiz.topic}
+        quizDifficulty={quiz.difficulty}
+        onQuestionsGenerated={() => {
+          // Refresh questions list
+          router.refresh()
+        }}
+      />
+
       {/* Questions */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -256,7 +268,7 @@ export function QuizEditor({ quiz: initialQuiz, questions: initialQuestions }: Q
         </CardHeader>
         <CardContent className="space-y-3">
           {questions.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6">No questions yet. Add one or use AI generation from the quiz detail page.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">No questions yet. Use the content generator above or add manually.</p>
           )}
 
           {questions.map((q, qi) => (

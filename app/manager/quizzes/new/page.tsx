@@ -18,16 +18,31 @@ import type { DifficultyLevel } from '@/lib/types/database'
 const ALL_DIFFICULTIES: DifficultyLevel[] = ['easy', 'medium', 'hard', 'advanced', 'hardcore']
 
 function getDistribution(primary: DifficultyLevel, total: number) {
-  const primaryCount = Math.ceil(total * 0.5)
+  // 70% primary difficulty for stricter adherence
+  const primaryCount = Math.ceil(total * 0.7)
   const remaining = total - primaryCount
-  const others = ALL_DIFFICULTIES.filter(d => d !== primary)
-  const perOther = Math.floor(remaining / others.length)
-  let leftover = remaining - (perOther * others.length)
+  const primaryIndex = ALL_DIFFICULTIES.indexOf(primary)
+  
+  // Get adjacent difficulties
+  const adjacentDifficulties = ALL_DIFFICULTIES.filter((d, i) => {
+    if (d === primary) return false
+    return Math.abs(i - primaryIndex) <= 2
+  })
+  
+  const perOther = Math.floor(remaining / adjacentDifficulties.length)
+  let leftover = remaining - (perOther * adjacentDifficulties.length)
+  
   const dist: Record<string, number> = { [primary]: primaryCount }
-  for (const d of others) {
+  for (const d of adjacentDifficulties) {
     dist[d] = perOther + (leftover > 0 ? 1 : 0)
     if (leftover > 0) leftover--
   }
+  
+  // Fill zeros for non-adjacent
+  for (const d of ALL_DIFFICULTIES) {
+    if (!(d in dist)) dist[d] = 0
+  }
+  
   return dist
 }
 
