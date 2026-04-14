@@ -1,4 +1,9 @@
--- Create quiz_assignments table to track which quizzes are assigned to which employees
+-- ============================================================
+-- 009_create_quiz_assignments.sql
+-- Safe to re-run: uses IF NOT EXISTS + DROP POLICY IF EXISTS
+-- ============================================================
+
+-- 1. Create table (idempotent)
 CREATE TABLE IF NOT EXISTS public.quiz_assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   quiz_id UUID NOT NULL REFERENCES public.quizzes(id) ON DELETE CASCADE,
@@ -9,14 +14,22 @@ CREATE TABLE IF NOT EXISTS public.quiz_assignments (
   UNIQUE(quiz_id, user_id)
 );
 
--- Enable RLS
+-- 2. Enable RLS
 ALTER TABLE public.quiz_assignments ENABLE ROW LEVEL SECURITY;
 
--- Policy: Employees can view their own assignments
+-- 3. Drop all existing policies first (safe if they don't exist)
+DROP POLICY IF EXISTS "Employees can view their own assignments" ON public.quiz_assignments;
+DROP POLICY IF EXISTS "Managers can view assignments for their quizzes" ON public.quiz_assignments;
+DROP POLICY IF EXISTS "Managers can create assignments" ON public.quiz_assignments;
+DROP POLICY IF EXISTS "Managers can delete assignments" ON public.quiz_assignments;
+
+-- 4. Recreate policies
+
+-- Employees can only see quizzes assigned to them
 CREATE POLICY "Employees can view their own assignments" ON public.quiz_assignments
   FOR SELECT USING (user_id = auth.uid());
 
--- Policy: Managers can view all assignments for quizzes they created
+-- Managers/admins can see all assignments
 CREATE POLICY "Managers can view assignments for their quizzes" ON public.quiz_assignments
   FOR SELECT USING (
     EXISTS (
@@ -25,7 +38,7 @@ CREATE POLICY "Managers can view assignments for their quizzes" ON public.quiz_a
     )
   );
 
--- Policy: Managers can create assignments (assigned_by must be the current user)
+-- Managers/admins can insert assignments (assigned_by must be themselves)
 CREATE POLICY "Managers can create assignments" ON public.quiz_assignments
   FOR INSERT WITH CHECK (
     assigned_by = auth.uid() AND
@@ -35,7 +48,7 @@ CREATE POLICY "Managers can create assignments" ON public.quiz_assignments
     )
   );
 
--- Policy: Managers can delete assignments
+-- Managers/admins can remove assignments
 CREATE POLICY "Managers can delete assignments" ON public.quiz_assignments
   FOR DELETE USING (
     EXISTS (
@@ -44,7 +57,7 @@ CREATE POLICY "Managers can delete assignments" ON public.quiz_assignments
     )
   );
 
--- Indexes for performance with 1000+ users
+-- 5. Indexes for performance with 1000+ users (idempotent)
 CREATE INDEX IF NOT EXISTS idx_quiz_assignments_user_id ON public.quiz_assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_assignments_quiz_id ON public.quiz_assignments(quiz_id);
 CREATE INDEX IF NOT EXISTS idx_quiz_assignments_assigned_by ON public.quiz_assignments(assigned_by);
