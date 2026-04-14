@@ -28,8 +28,8 @@ export default async function TakeQuizPage({ params }: { params: Promise<{ quizI
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Quiz Not Found</h2>
-          <p className="text-muted-foreground">{error || 'This quiz is not available.'}</p>
+          <h2 className="text-2xl font-bold mb-2">Quiz Not Available</h2>
+          <p className="text-muted-foreground">{error || 'This quiz is not available or has not been assigned to you.'}</p>
         </div>
       </div>
     )

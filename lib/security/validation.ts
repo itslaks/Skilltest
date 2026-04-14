@@ -72,13 +72,14 @@ const userRoleSchema = z.enum(['employee', 'manager'])
 
 // ─── Auth schemas ─────────────────────────────────────────────────────
 
+/** Sign-up schema – only 'employee' role is accepted via self-registration */
 export const signUpSchema = z
   .object({
     email: safeEmail,
     password: safePassword,
     fullName: sanitizedString(150),
     employeeId: sanitizedString(50).optional().nullable().or(z.literal('').transform(() => null)),
-    role: userRoleSchema.default('employee'),
+    role: z.literal('employee').default('employee'),
     department: sanitizedString(150).optional().nullable().or(z.literal('').transform(() => null)),
   })
   .strict()

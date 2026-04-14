@@ -6,19 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup, Field, FieldLabel, FieldMessage } from '@/components/ui/field'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { signUp } from '@/lib/actions/auth'
-import { Mail, Lock, User, Building, Sparkles, Hash } from 'lucide-react'
+import { Mail, Lock, User, Building, Sparkles } from 'lucide-react'
 
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
-  const [role, setRole] = useState('employee')
   const [isPending, startTransition] = useTransition()
 
   async function handleSignUp(formData: FormData) {
     setError(null)
-    formData.append('role', role)
+    // Always sign up as employee – manager accounts are created by admins
+    formData.append('role', 'employee')
     startTransition(async () => {
       const result = await signUp(formData)
       if (result?.error) {
@@ -83,20 +82,6 @@ export default function SignUpPage() {
                   </div>
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="employeeId">Employee ID</FieldLabel>
-                  <div className="relative">
-                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="employeeId"
-                      name="employeeId"
-                      type="text"
-                      placeholder="EMP-001"
-                      className="pl-10"
-                    />
-                  </div>
-                  <FieldMessage>Your company employee ID</FieldMessage>
-                </Field>
-                <Field>
                   <FieldLabel htmlFor="password">Password</FieldLabel>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -124,24 +109,6 @@ export default function SignUpPage() {
                       className="pl-10"
                     />
                   </div>
-                </Field>
-                <Field>
-                  <FieldLabel>Role</FieldLabel>
-                  <Select value={role} onValueChange={setRole}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="employee">Employee</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FieldMessage>
-                    {role === 'manager' 
-                      ? 'Managers can create quizzes and view reports' 
-                      : 'Employees can take quizzes and view their progress'
-                    }
-                  </FieldMessage>
                 </Field>
               </FieldGroup>
             </CardContent>

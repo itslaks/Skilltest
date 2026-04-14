@@ -6,10 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import {
   ArrowLeft, Download, Users, Clock, Trophy, CheckCircle2, XCircle,
-  FileQuestion, Pencil,
+  FileQuestion, Pencil, ClipboardList,
 } from 'lucide-react'
 import { getQuizLeaderboard } from '@/lib/actions/employee'
+import { getQuizAssignments, getEmployees } from '@/lib/actions/manager'
 import { QuizToggleActive } from '@/components/manager/quiz-toggle-active'
+import { QuizAssignmentManager } from '@/components/manager/quiz-assignment-manager'
 
 const difficultyColors: Record<string, string> = {
   easy: 'bg-green-100 text-green-700',
@@ -47,6 +49,8 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
     .order('order_index', { ascending: true })
 
   const { data: leaderboard } = await getQuizLeaderboard(quizId)
+  const { data: assignmentData } = await getQuizAssignments(quizId)
+  const { data: allEmployees } = await getEmployees()
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}m ${s % 60}s`
 
@@ -109,6 +113,24 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
           </CardContent>
         </Card>
       </div>
+
+      {/* Quiz Assignment */}
+      <QuizAssignmentManager
+        quizzes={[{
+          id: quiz.id,
+          title: quiz.title,
+          topic: quiz.topic,
+          difficulty: quiz.difficulty,
+        }]}
+        employees={(allEmployees || []).map((e: any) => ({
+          id: e.id,
+          full_name: e.full_name,
+          email: e.email,
+          employee_id: e.employee_id,
+          department: e.department,
+        }))}
+        assignments={assignmentData || []}
+      />
 
       {/* Leaderboard Section */}
       <Card>

@@ -19,7 +19,10 @@ export async function signUp(formData: FormData) {
     return { error: parsed.error }
   }
 
-  const { email, password, fullName, employeeId, role, department } = parsed.data
+  const { email, password, fullName, employeeId, department } = parsed.data
+
+  // Always enforce employee role on sign-up – manager accounts are created by admins only
+  const role: UserRole = 'employee'
 
   const supabase = await createClient()
 

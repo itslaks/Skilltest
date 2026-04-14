@@ -79,6 +79,7 @@ scripts/005_create_gamification.sql
 scripts/006_create_triggers.sql
 scripts/007_seed_badges.sql
 scripts/008_add_passing_score.sql
+scripts/009_create_quiz_assignments.sql
 ```
 
 > Each script is idempotent (`IF NOT EXISTS`), so re-running is safe.
@@ -107,9 +108,13 @@ npm run start
 ## 8 · Create your first accounts
 
 1. Open **http://localhost:3000/auth/sign-up**
-2. Register a **Manager** account (select role = "manager")
-3. Register an **Employee** account (select role = "employee", add an Employee ID)
-4. Confirm emails via the Supabase dashboard → **Authentication → Users** (or check your inbox if email is configured)
+2. Register an **Employee** account (all sign-ups create employee accounts by default)
+3. Confirm the email via the Supabase dashboard → **Authentication → Users** (or check your inbox if email is configured)
+4. To create a **Manager** account, update the user's `role` column to `manager` in the `profiles` table via Supabase Table Editor or SQL:
+   ```sql
+   UPDATE profiles SET role = 'manager' WHERE email = 'manager@example.com';
+   ```
+5. Manager can now log in and assign quizzes to employees from the **Employees** page
 
 ---
 

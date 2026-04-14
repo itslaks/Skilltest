@@ -14,6 +14,16 @@ export async function startQuizAttempt(quizId: string) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return { error: 'Not authenticated' }
 
+  // Verify this quiz is assigned to the employee
+  const { data: assignment } = await supabase
+    .from('quiz_assignments')
+    .select('id')
+    .eq('quiz_id', idResult.data)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!assignment) return { error: 'This quiz has not been assigned to you' }
+
   // Check if there's already an attempt
   const { data: existing } = await supabase
     .from('quiz_attempts')
@@ -103,16 +113,30 @@ export async function submitQuizAttempt(input: SubmitQuizInput) {
   return { data }
 }
 
-// ─── Get available quizzes for employees ──────────────────────────────
+// ─── Get available quizzes for employees (only assigned ones) ─────────
 export async function getAvailableQuizzes() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return { error: 'Not authenticated', data: [] }
 
-  // Get active quizzes
+  // Get quiz IDs assigned to this employee
+  const { data: assignments, error: assignError } = await supabase
+    .from('quiz_assignments')
+    .select('quiz_id')
+    .eq('user_id', user.id)
+
+  if (assignError) return { error: assignError.message, data: [] }
+
+  const assignedQuizIds = assignments?.map((a: any) => a.quiz_id) || []
+
+  // If no quizzes assigned, return empty
+  if (assignedQuizIds.length === 0) return { data: [] }
+
+  // Get only active quizzes that are assigned to this employee
   const { data: quizzes, error } = await supabase
     .from('quizzes')
     .select('*, questions(count)')
+    .in('id', assignedQuizIds)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
@@ -137,7 +161,7 @@ export async function getAvailableQuizzes() {
   return { data: quizzesWithStatus }
 }
 
-// ─── Get quiz for taking (with questions) ─────────────────────────────
+// ─── Get quiz for taking (with questions) — checks assignment ─────────
 export async function getQuizForAttempt(quizId: string) {
   const idResult = uuidSchema.safeParse(quizId)
   if (!idResult.success) return { error: 'Invalid quiz ID' }
@@ -145,6 +169,16 @@ export async function getQuizForAttempt(quizId: string) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return { error: 'Not authenticated' }
+
+  // Verify this quiz is assigned to the employee
+  const { data: assignment } = await supabase
+    .from('quiz_assignments')
+    .select('id')
+    .eq('quiz_id', idResult.data)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!assignment) return { error: 'This quiz has not been assigned to you' }
 
   const { data: quiz, error: quizError } = await supabase
     .from('quizzes')

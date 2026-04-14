@@ -99,6 +99,15 @@ export interface UserStats {
   updated_at: string
 }
 
+export interface QuizAssignment {
+  id: string
+  quiz_id: string
+  user_id: string
+  assigned_by: string
+  assigned_at: string
+  due_date: string | null
+}
+
 // Extended types with relations
 export interface QuizWithQuestions extends Quiz {
   questions: Question[]

@@ -133,3 +133,92 @@ export async function getImportHistory() {
   if (error) return { error: error.message, data: [] }
   return { data: data || [] }
 }
+
+// ─── Assign a quiz to employees ───────────────────────────────────────
+export async function assignQuizToEmployees(quizId: string, employeeIds: string[]) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'Not authenticated' }
+
+  // Verify manager role
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
+    return { error: 'Unauthorized: Only managers can assign quizzes' }
+  }
+
+  // Build assignment rows
+  const rows = employeeIds.map((empId) => ({
+    quiz_id: quizId,
+    user_id: empId,
+    assigned_by: user.id,
+  }))
+
+  // Upsert to avoid duplicates
+  const { data, error } = await supabase
+    .from('quiz_assignments')
+    .upsert(rows, { onConflict: 'quiz_id,user_id', ignoreDuplicates: true })
+    .select()
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/manager/quizzes', 'layout')
+  revalidatePath('/manager/employees', 'layout')
+  return { data, assigned: rows.length }
+}
+
+// ─── Unassign a quiz from an employee ─────────────────────────────────
+export async function unassignQuizFromEmployee(quizId: string, employeeId: string) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'Not authenticated' }
+
+  const { error } = await supabase
+    .from('quiz_assignments')
+    .delete()
+    .eq('quiz_id', quizId)
+    .eq('user_id', employeeId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/manager/quizzes', 'layout')
+  revalidatePath('/manager/employees', 'layout')
+  return { success: true }
+}
+
+// ─── Get assignments for a quiz ───────────────────────────────────────
+export async function getQuizAssignments(quizId: string) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'Not authenticated', data: [] }
+
+  const { data, error } = await supabase
+    .from('quiz_assignments')
+    .select('*, profiles:user_id(id, full_name, email, employee_id, department, avatar_url)')
+    .eq('quiz_id', quizId)
+    .order('assigned_at', { ascending: false })
+
+  if (error) return { error: error.message, data: [] }
+  return { data: data || [] }
+}
+
+// ─── Get all quizzes with assignment info for manager ─────────────────
+export async function getQuizzesForAssignment() {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return { error: 'Not authenticated', data: [] }
+
+  const { data: quizzes, error } = await supabase
+    .from('quizzes')
+    .select('id, title, topic, difficulty, is_active, questions(count)')
+    .eq('created_by', user.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: error.message, data: [] }
+  return { data: quizzes || [] }
+}

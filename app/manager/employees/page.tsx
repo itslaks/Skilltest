@@ -1,5 +1,7 @@
-import { getEmployees, getEmployeesByDomain, getImportHistory } from '@/lib/actions/manager'
+import { getEmployees, getEmployeesByDomain, getImportHistory, getQuizzesForAssignment } from '@/lib/actions/manager'
+import { createClient } from '@/lib/supabase/server'
 import { EmployeeImporter } from '@/components/manager/employee-importer'
+import { QuizAssignmentManager } from '@/components/manager/quiz-assignment-manager'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -7,11 +9,27 @@ import { Users, Building2, History, Trophy, Flame } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export default async function ManagerEmployeesPage() {
-  const [{ data: employees }, { data: rawGrouped }, { data: importHistory }] = await Promise.all([
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const [{ data: employees }, { data: rawGrouped }, { data: importHistory }, { data: quizzes }] = await Promise.all([
     getEmployees(),
     getEmployeesByDomain(),
     getImportHistory(),
+    getQuizzesForAssignment(),
   ])
+
+  // Fetch all assignments for the manager's quizzes
+  const quizIds = (quizzes || []).map((q: any) => q.id)
+  let allAssignments: any[] = []
+  if (quizIds.length > 0) {
+    const { data: assignments } = await supabase
+      .from('quiz_assignments')
+      .select('*, profiles:user_id(id, full_name, email, employee_id, department, avatar_url)')
+      .in('quiz_id', quizIds)
+      .order('assigned_at', { ascending: false })
+    allAssignments = assignments || []
+  }
 
   const grouped = rawGrouped as Record<string, any[]>
   const domains = Object.keys(grouped)
@@ -83,6 +101,24 @@ export default async function ManagerEmployeesPage() {
 
       {/* Import section */}
       <EmployeeImporter />
+
+      {/* Quiz Assignment section */}
+      <QuizAssignmentManager
+        quizzes={(quizzes || []).map((q: any) => ({
+          id: q.id,
+          title: q.title,
+          topic: q.topic,
+          difficulty: q.difficulty,
+        }))}
+        employees={employees.map((e: any) => ({
+          id: e.id,
+          full_name: e.full_name,
+          email: e.email,
+          employee_id: e.employee_id,
+          department: e.department,
+        }))}
+        assignments={allAssignments}
+      />
 
       {/* Tabs: All employees / By Domain / Import History */}
       <Tabs defaultValue="all" className="space-y-4">
