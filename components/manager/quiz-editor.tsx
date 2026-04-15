@@ -13,6 +13,7 @@ import { updateQuiz, updateQuestion, deleteQuestion, createQuestion } from '@/li
 import type { Quiz, Question, DifficultyLevel, CreateQuestionInput } from '@/lib/types/database'
 import { Save, Trash2, Plus, CheckCircle2, XCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { ContentQuestionGenerator } from './content-question-generator'
+import { QuizImporter } from './quiz-importer'
 
 const DIFFICULTIES: DifficultyLevel[] = ['easy', 'medium', 'hard', 'advanced', 'hardcore']
 
@@ -254,6 +255,15 @@ export function QuizEditor({ quiz: initialQuiz, questions: initialQuestions }: Q
         quizDifficulty={quiz.difficulty}
         onQuestionsGenerated={() => {
           // Refresh questions list
+          router.refresh()
+        }}
+      />
+
+      {/* Excel Quiz Import */}
+      <QuizImporter
+        quizId={quiz.id}
+        quizDifficulty={quiz.difficulty}
+        onQuestionsImported={() => {
           router.refresh()
         }}
       />

@@ -1,21 +1,40 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Trophy, Medal, Flame, Star, Crown } from 'lucide-react'
 
 export default async function LeaderboardPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    redirect('/auth/login')
+  }
 
   // Use admin client to bypass RLS for leaderboard data
-  const adminClient = createAdminClient()
+  let adminClient
+  try {
+    adminClient = createAdminClient()
+  } catch (e) {
+    // If service role key is not available, use regular client
+    console.warn('Service role key not available, using regular client for leaderboard')
+    adminClient = supabase
+  }
 
   // Get global leaderboard from user_stats
-  const { data: leaderboard } = await adminClient
+  const { data: leaderboard, error: leaderboardError } = await adminClient
     .from('user_stats')
     .select('*, profiles:user_id(full_name, email, avatar_url, department, employee_id)')
     .order('total_points', { ascending: false })
     .limit(100)
+
+  // Handle empty or error states
+  if (leaderboardError) {
+    console.error('Leaderboard error:', leaderboardError)
+  }
+
+  const hasLeaderboardData = leaderboard && leaderboard.length > 0
 
   return (
     <div className="space-y-6">
@@ -28,7 +47,7 @@ export default async function LeaderboardPage() {
       </div>
 
       {/* Top 3 podium */}
-      {leaderboard && leaderboard.length >= 3 && (
+      {hasLeaderboardData && leaderboard.length >= 3 && (
         <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
           {/* 2nd place */}
           <div className="flex flex-col items-center pt-8">
@@ -106,6 +125,13 @@ export default async function LeaderboardPage() {
                 </div>
               </div>
             ))}
+            {(!hasLeaderboardData) && (
+              <div className="text-center py-12">
+                <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Rankings Yet</h3>
+                <p className="text-muted-foreground">Complete quizzes to appear on the leaderboard!</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

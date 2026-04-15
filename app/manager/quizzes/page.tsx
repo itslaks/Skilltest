@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { Plus, FileQuestion, MoreHorizontal, Pencil, Trash2, Eye, Power } from 'lucide-react'
+import { Plus, FileQuestion, MoreHorizontal, Pencil, Trash2, Eye, Power, Upload } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,13 +45,27 @@ export default async function QuizzesPage() {
             Create and manage your employee assessments
           </p>
         </div>
-        <Button asChild>
-          <Link href="/manager/quizzes/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Quiz
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild>
+            <Link href="/manager/quizzes/new">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Quiz
+            </Link>
+          </Button>
+        </div>
       </div>
+
+      {/* Info about importing */}
+      <Card className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center gap-3">
+            <Upload className="h-5 w-5 text-amber-600" />
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <strong>Tip:</strong> You can import questions from Excel when editing a quiz. Create a quiz first, then use the &ldquo;Import Questions from Excel&rdquo; feature in the quiz editor.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {quizzes && quizzes.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

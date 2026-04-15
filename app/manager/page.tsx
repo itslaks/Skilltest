@@ -11,6 +11,8 @@ import {
   ArrowRight,
   CheckCircle2,
   XCircle,
+  Sparkles,
+  BarChart3,
 } from 'lucide-react'
 import { getQuizStats } from '@/lib/actions/quiz'
 
@@ -18,6 +20,12 @@ export default async function ManagerDashboard() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user?.id)
+    .single()
+
   const { data: stats } = await getQuizStats()
   
   // Get recent quizzes
@@ -56,68 +64,140 @@ export default async function ManagerDashboard() {
       value: stats?.totalQuizzes || 0,
       icon: FileQuestion,
       description: 'Active assessments',
+      gradient: 'from-blue-500 to-blue-600',
+      bgGradient: 'from-blue-500/10 to-blue-600/10',
     },
     {
       title: 'Total Attempts',
       value: stats?.totalAttempts || 0,
       icon: CheckCircle2,
       description: 'Completed assessments',
+      gradient: 'from-green-500 to-emerald-600',
+      bgGradient: 'from-green-500/10 to-emerald-600/10',
     },
     {
       title: 'Average Score',
       value: `${stats?.averageScore || 0}%`,
       icon: TrendingUp,
       description: 'Across all quizzes',
+      gradient: 'from-purple-500 to-violet-600',
+      bgGradient: 'from-purple-500/10 to-violet-600/10',
     },
     {
       title: 'Active Employees',
       value: stats?.uniqueEmployees || 0,
       icon: Users,
       description: 'Have taken quizzes',
+      gradient: 'from-orange-500 to-amber-600',
+      bgGradient: 'from-orange-500/10 to-amber-600/10',
     },
   ]
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back! Here&apos;s an overview of your assessments.
-          </p>
+    <div className="space-y-8">
+      {/* Welcome Section */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-primary-foreground">
+        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+        <div className="relative z-10 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-5 w-5" />
+              <span className="text-sm font-medium opacity-90">Manager Dashboard</span>
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">
+              Welcome back, {profile?.full_name?.split(' ')[0] || 'Manager'}!
+            </h1>
+            <p className="text-primary-foreground/80 max-w-md">
+              Here&apos;s an overview of your assessments and employee performance.
+            </p>
+          </div>
+          <Button 
+            asChild 
+            size="lg" 
+            className="bg-white text-primary hover:bg-white/90 shadow-lg"
+          >
+            <Link href="/manager/quizzes/new">
+              <Plus className="mr-2 h-5 w-5" />
+              Create Quiz
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href="/manager/quizzes/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Quiz
-          </Link>
-        </Button>
       </div>
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.title}>
+          <Card key={stat.title} className={`relative overflow-hidden border-0 shadow-lg bg-gradient-to-br ${stat.bgGradient}`}>
+            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br opacity-20 rounded-full blur-2xl" />
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {stat.title}
               </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
+              <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.gradient}`}>
+                <stat.icon className="h-4 w-4 text-white" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.description}</p>
+              <div className="text-3xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
+      {/* Quick Actions */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Link href="/manager/quizzes" className="group">
+          <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
+            <CardContent className="pt-6 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                <FileQuestion className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold group-hover:text-primary transition-colors">Manage Quizzes</h3>
+                <p className="text-sm text-muted-foreground">View and edit your assessments</p>
+              </div>
+              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/manager/employees" className="group">
+          <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
+            <CardContent className="pt-6 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                <Users className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold group-hover:text-primary transition-colors">Employees</h3>
+                <p className="text-sm text-muted-foreground">Import and assign quizzes</p>
+              </div>
+              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/manager/reports" className="group">
+          <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
+            <CardContent className="pt-6 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                <BarChart3 className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold group-hover:text-primary transition-colors">Reports</h3>
+                <p className="text-sm text-muted-foreground">Analytics and exports</p>
+              </div>
+              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Quizzes */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+        <Card className="shadow-lg border-0">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30">
             <div>
-              <CardTitle>Recent Quizzes</CardTitle>
+              <CardTitle className="text-lg">Recent Quizzes</CardTitle>
               <CardDescription>Your latest assessments</CardDescription>
             </div>
             <Button variant="ghost" size="sm" asChild>

@@ -1,90 +1,168 @@
 import { getEmployeeStats, getAvailableQuizzes } from '@/lib/actions/employee'
+import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import {
-  Trophy, Flame, Target, Star, ArrowRight, FileQuestion, Clock, Zap,
+  Trophy, Flame, Target, Star, ArrowRight, FileQuestion, Clock, Zap, Award, Sparkles,
 } from 'lucide-react'
 
 export default async function EmployeeDashboard() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', user?.id)
+    .single()
+
   const { data: stats } = await getEmployeeStats()
   const { data: quizzes } = await getAvailableQuizzes()
 
   const activeQuizzes = quizzes?.filter((q: any) => !q.attemptStatus || q.attemptStatus === 'in_progress') || []
   const completedQuizzes = quizzes?.filter((q: any) => q.attemptStatus === 'completed') || []
 
+  const statCards = [
+    {
+      title: 'Total Points',
+      value: stats?.stats?.total_points || 0,
+      suffix: '',
+      icon: Star,
+      gradient: 'from-yellow-500 to-amber-600',
+      bgGradient: 'from-yellow-500/10 to-amber-600/10',
+    },
+    {
+      title: 'Current Streak',
+      value: stats?.stats?.current_streak || 0,
+      suffix: ' days',
+      icon: Flame,
+      gradient: 'from-orange-500 to-red-600',
+      bgGradient: 'from-orange-500/10 to-red-600/10',
+    },
+    {
+      title: 'Quizzes Done',
+      value: stats?.stats?.tests_completed || 0,
+      suffix: '',
+      icon: Target,
+      gradient: 'from-green-500 to-emerald-600',
+      bgGradient: 'from-green-500/10 to-emerald-600/10',
+    },
+    {
+      title: 'Average Score',
+      value: Math.round(stats?.stats?.average_score || 0),
+      suffix: '%',
+      icon: Trophy,
+      gradient: 'from-blue-500 to-indigo-600',
+      bgGradient: 'from-blue-500/10 to-indigo-600/10',
+    },
+  ]
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back! Track your progress and take quizzes.</p>
+    <div className="space-y-8">
+      {/* Welcome Section */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-primary-foreground">
+        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-5 w-5" />
+            <span className="text-sm font-medium opacity-90">Employee Dashboard</span>
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">
+            Welcome back, {profile?.full_name?.split(' ')[0] || 'there'}!
+          </h1>
+          <p className="text-primary-foreground/80 max-w-md">
+            Track your progress, complete quizzes, and climb the leaderboard.
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 rounded-bl-full" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Points</CardTitle>
-            <Star className="h-5 w-5 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.stats?.total_points || 0}</div>
-          </CardContent>
-        </Card>
+        {statCards.map((stat) => (
+          <Card key={stat.title} className={`relative overflow-hidden border-0 shadow-lg bg-gradient-to-br ${stat.bgGradient}`}>
+            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br opacity-20 rounded-full blur-2xl" />
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+              <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.gradient}`}>
+                <stat.icon className="h-4 w-4 text-white" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {stat.value}
+                {stat.suffix && <span className="text-base font-normal text-muted-foreground">{stat.suffix}</span>}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/5 rounded-bl-full" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Current Streak</CardTitle>
-            <Flame className="h-5 w-5 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.stats?.current_streak || 0} <span className="text-base font-normal text-muted-foreground">days</span></div>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-green-500/5 rounded-bl-full" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Quizzes Done</CardTitle>
-            <Target className="h-5 w-5 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.stats?.tests_completed || 0}</div>
-          </CardContent>
-        </Card>
-
-        <Card className="relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-bl-full" />
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Avg Score</CardTitle>
-            <Trophy className="h-5 w-5 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{Math.round(stats?.stats?.average_score || 0)}%</div>
-          </CardContent>
-        </Card>
+      {/* Quick Actions */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Link href="/employee/quizzes" className="group">
+          <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
+            <CardContent className="pt-6 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                <FileQuestion className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold group-hover:text-primary transition-colors">Take Quizzes</h3>
+                <p className="text-sm text-muted-foreground">{activeQuizzes.length} available</p>
+              </div>
+              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/employee/leaderboard" className="group">
+          <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
+            <CardContent className="pt-6 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
+                <Trophy className="h-6 w-6 text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold group-hover:text-primary transition-colors">Leaderboard</h3>
+                <p className="text-sm text-muted-foreground">See rankings</p>
+              </div>
+              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/employee/badges" className="group">
+          <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
+            <CardContent className="pt-6 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                <Award className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold group-hover:text-primary transition-colors">Badges</h3>
+                <p className="text-sm text-muted-foreground">{stats?.badges?.length || 0} earned</p>
+              </div>
+              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Badges */}
       {stats?.badges && stats.badges.length > 0 && (
-        <Card>
-          <CardHeader>
+        <Card className="shadow-lg border-0">
+          <CardHeader className="border-b bg-muted/30">
             <CardTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-yellow-500" />
               Your Badges
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="flex flex-wrap gap-3">
               {stats.badges.map((ub: any) => (
-                <div key={ub.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border">
-                  <span className="text-lg">🏆</span>
+                <div key={ub.id} className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border border-yellow-500/20">
+                  <span className="text-2xl">🏆</span>
                   <div>
-                    <p className="text-sm font-medium">{ub.badges?.name}</p>
+                    <p className="text-sm font-semibold">{ub.badges?.name}</p>
                     <p className="text-xs text-muted-foreground">{ub.badges?.description}</p>
                   </div>
                 </div>
@@ -95,8 +173,8 @@ export default async function EmployeeDashboard() {
       )}
 
       {/* Available Quizzes */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+      <Card className="shadow-lg border-0">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/30">
           <div>
             <CardTitle>Available Quizzes</CardTitle>
             <CardDescription>Take a quiz to earn points and badges</CardDescription>

@@ -81,14 +81,45 @@ export default async function ManagerReportsPage() {
           <p className="text-muted-foreground mt-1">Overview of quiz performance and employee engagement</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
+          <Button variant="default" asChild>
             <a href="/api/reports/download" download>
               <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Export All Reports
+              Export All Reports (Excel)
             </a>
           </Button>
         </div>
       </div>
+
+      {/* Export Info Card */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+              <Download className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg mb-1">Export Reports</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Download comprehensive Excel reports with multiple sheets:
+              </p>
+              <ul className="text-sm text-muted-foreground space-y-1 mb-4">
+                <li>• <strong>Summary:</strong> Overview statistics and totals</li>
+                <li>• <strong>Quiz Performance:</strong> Per-quiz metrics, pass rates, and averages</li>
+                <li>• <strong>All Results:</strong> Detailed attempt data with scores and times</li>
+                <li>• <strong>Employee Stats:</strong> Individual employee performance metrics</li>
+              </ul>
+              <div className="flex gap-3">
+                <Button asChild>
+                  <a href="/api/reports/download" download>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />
+                    Download Complete Report
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-4">

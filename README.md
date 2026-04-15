@@ -52,10 +52,12 @@
 | 🔀 **Quiz Toggle** | Activate / deactivate quizzes with one click |
 | 👥 **Employee Management** | View all signed-up employees with stats, department, and activity info |
 | 📤 **Excel Import** | Bulk import employees via Excel/CSV — auto-categorizes by domain |
-| 📋 **Quiz Assignment** | 🆕 Assign quizzes to specific employees — employees see **only** their assigned quizzes |
+| � **Quiz Import** | 🆕 Import quiz questions from Excel files with template download |
+| �📋 **Quiz Assignment** | 🆕 Assign quizzes to specific employees — employees see **only** their assigned quizzes |
 | 🏆 **Leaderboard** | Per-quiz leaderboard with rank, score, time, and correct answers |
 | 📥 **Excel Export** | Download leaderboards as `.xlsx` files |
 | 📈 **Reports & Analytics** | Per-quiz performance, pass rates, domain distribution, engagement metrics |
+| 📊 **Comprehensive Report Download** | 🆕 Download full reports with Summary, Quiz Performance, All Results & Employee Stats sheets |
 | ⚙️ **Settings** | Profile management |
 
 ### 👩‍💻 Employee Portal — `/employee`
@@ -85,7 +87,7 @@
 | Feature | Description |
 |:--------|:------------|
 | 📧 **Email/Password Sign-Up** | Employee-only self-registration (manager accounts created by admins) |
-| 🔗 **Magic Link Sign-In** | Passwordless login via email |
+| � **Password-Only Sign-In** | Secure password-based authentication (no magic links) |
 | 🛡 **Server-Side Role Enforcement** | Role is **always** set to `employee` on sign-up — cannot be bypassed via API |
 | 🔒 **Supabase Auth + RLS** | Row Level Security on every table — users only access their own data |
 | 🚪 **Protected Routes** | Middleware-based session validation on all `/manager` and `/employee` routes |
@@ -163,7 +165,11 @@
 │
 └── 🔌 api/
     ├── generate-questions/        # AI question generation endpoint
-    └── leaderboard/[quizId]/      # Leaderboard Excel download
+    ├── generate-from-content/     # AI question generation from content
+    ├── extract-content/           # Extract content from files/URLs
+    ├── leaderboard/[quizId]/      # Leaderboard Excel download
+    ├── reports/download/          # 🆕 Comprehensive reports Excel download
+    └── health/                    # 🆕 API health check endpoint
 
 📁 components/
 ├── 🌐 landing/                    # 16 landing page section components
@@ -183,10 +189,12 @@
 │   ├── sidebar.tsx                # Collapsible sidebar navigation
 │   ├── header.tsx                 # Top bar with user info
 │   ├── quiz-editor.tsx            # Question CRUD editor
+│   ├── quiz-importer.tsx          # 🆕 Import quiz questions from Excel
 │   ├── quiz-toggle-active.tsx     # Toggle quiz on/off
 │   ├── quiz-delete-button.tsx     # Quiz deletion with confirm
 │   ├── quiz-assignment-manager.tsx # 🆕 Assign quizzes to employees
 │   ├── employee-importer.tsx      # Excel bulk import
+│   ├── content-question-generator.tsx # Generate questions from content
 │   └── profile-form.tsx           # Profile edit form
 │
 ├── 🧩 ui/                        # 50+ shadcn-style primitives
@@ -503,9 +511,32 @@ Run these in your **Supabase SQL Editor** in exact order:
 007_seed_badges.sql             ─── 🎖 Seed 8 default badges
 008_add_passing_score.sql       ─── ✅ Passing score column
 009_create_quiz_assignments.sql ─── 🆕 Quiz ↔ Employee assignments
+010_fix_leaderboard_rls.sql     ─── 🔧 Fix leaderboard RLS policies
 ```
 
 > All scripts use `IF NOT EXISTS` — safe to re-run.
+
+---
+
+## 📝 Changelog
+
+### v1.1.0 (April 2026)
+
+#### 🆕 New Features
+- **Quiz Import from Excel** — Managers can now import quiz questions from Excel files with a downloadable template
+- **Comprehensive Report Download** — Download full analytics reports with 4 sheets: Summary, Quiz Performance, All Results, Employee Stats
+- **Health Check API** — New `/api/health` endpoint to verify environment configuration
+
+#### 🔧 Improvements
+- **Enhanced UI** — Professional, vibrant login page with gradient backgrounds and decorative elements
+- **Improved Manager Dashboard** — Welcome banner, gradient stat cards, and quick action buttons
+- **Improved Employee Dashboard** — Matching professional design with better visual hierarchy
+- **Removed Magic Links** — Simplified authentication to password-only login for better security
+
+#### 🐛 Bug Fixes
+- **Fixed Employee Leaderboard** — Now properly handles authentication and displays global rankings
+- **Fixed Excel Downloads** — Added robust error handling with fallback when service role key is unavailable
+- **Fixed Report Generation** — Reports API now correctly generates multi-sheet Excel files
 
 ---
 
