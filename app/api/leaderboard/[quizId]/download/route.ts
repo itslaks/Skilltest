@@ -13,7 +13,10 @@ export async function GET(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+      return new NextResponse(
+        JSON.stringify({ error: 'Not authenticated' }), 
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     // Verify manager role
@@ -24,56 +27,80 @@ export async function GET(
       .single()
 
     if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }), 
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Use admin client to bypass RLS for data fetching
-    let adminClient
+    // Try admin client first, fall back to regular client
+    let dataClient = supabase
     try {
-      adminClient = createAdminClient()
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (serviceKey) {
+        dataClient = createAdminClient()
+      }
     } catch (e) {
-      // If service role key is not available, use regular client
-      console.warn('Service role key not available, using regular client')
-      adminClient = supabase
+      console.warn('Using regular client for data fetch')
     }
 
     // Get quiz info
-    const { data: quiz } = await adminClient
+    const { data: quiz } = await dataClient
       .from('quizzes')
       .select('title')
       .eq('id', quizId)
       .single()
 
-    // Get leaderboard data
-    const { data: attempts, error } = await adminClient
+    // Get leaderboard data - fetch attempts first
+    const { data: attempts, error: attemptsError } = await dataClient
       .from('quiz_attempts')
-      .select(`
-        *,
-        profiles:user_id(full_name, email, employee_id, department)
-      `)
+      .select('id, user_id, score, time_taken_seconds, completed_at')
       .eq('quiz_id', quizId)
       .eq('status', 'completed')
       .order('score', { ascending: false })
       .order('time_taken_seconds', { ascending: true })
 
-    if (error) {
-      console.error('Error fetching attempts:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (attemptsError) {
+      console.error('Error fetching attempts:', attemptsError)
+      return new NextResponse(
+        JSON.stringify({ error: attemptsError.message }), 
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Fetch profiles separately if we have attempts
+    let profilesMap: Record<string, any> = {}
+    if (attempts && attempts.length > 0) {
+      const userIds = [...new Set(attempts.map((a: any) => a.user_id))]
+      const { data: profiles } = await dataClient
+        .from('profiles')
+        .select('id, full_name, email, employee_id, department')
+        .in('id', userIds)
+      
+      if (profiles) {
+        profilesMap = profiles.reduce((acc: Record<string, any>, p: any) => {
+          acc[p.id] = p
+          return acc
+        }, {})
+      }
     }
 
     // Build Excel data
-    const rows = (attempts || []).map((a: any, i: number) => ({
-      'S.No': i + 1,
-      'Email': a.profiles?.email || '',
-      'Name': a.profiles?.full_name || 'Unknown',
-      'Score (%)': a.score,
-      'Completion Time': formatTime(a.time_taken_seconds),
-      'Employee ID': a.profiles?.employee_id || 'N/A',
-      'Department': a.profiles?.department || 'N/A',
-    }))
+    const rows = (attempts || []).map((a: any, i: number) => {
+      const profile = profilesMap[a.user_id] || {}
+      return {
+        'S.No': i + 1,
+        'Email': profile.email || 'N/A',
+        'Name': profile.full_name || 'Unknown',
+        'Score (%)': a.score || 0,
+        'Completion Time': formatTime(a.time_taken_seconds),
+        'Employee ID': profile.employee_id || 'N/A',
+        'Department': profile.department || 'N/A',
+      }
+    })
 
     const wb = XLSX.utils.book_new()
-    const ws = XLSX.utils.json_to_sheet(rows)
+    const ws = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ 'Message': 'No completed attempts yet' }])
 
     // Set column widths
     ws['!cols'] = [

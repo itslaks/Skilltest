@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+      return new NextResponse(
+        JSON.stringify({ error: 'Not authenticated' }), 
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
     // Verify manager role
@@ -19,40 +22,61 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+      return new NextResponse(
+        JSON.stringify({ error: 'Unauthorized' }), 
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Use admin client to bypass RLS for comprehensive reports
-    let adminClient
+    // Try admin client first, fall back to regular client
+    let dataClient = supabase
     try {
-      adminClient = createAdminClient()
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (serviceKey) {
+        dataClient = createAdminClient()
+      }
     } catch (e) {
-      console.warn('Service role key not available, using regular client')
-      adminClient = supabase
+      console.warn('Using regular client for data fetch')
     }
 
     // Get all quizzes
-    const { data: quizzes } = await adminClient
+    const { data: quizzes } = await dataClient
       .from('quizzes')
       .select('*')
       .order('created_at', { ascending: false })
 
-    // Get all attempts with user info
-    const { data: attempts } = await adminClient
+    // Get all attempts (without join first)
+    const { data: rawAttempts } = await dataClient
       .from('quiz_attempts')
-      .select(`
-        *,
-        profiles:user_id(full_name, email, employee_id, department),
-        quizzes:quiz_id(title)
-      `)
+      .select('*')
       .not('completed_at', 'is', null)
       .order('completed_at', { ascending: false })
 
-    // Get all employees
-    const { data: employees } = await adminClient
+    // Get all employees/profiles
+    const { data: employees } = await dataClient
       .from('profiles')
       .select('*')
-      .eq('role', 'employee')
+
+    // Build profiles map for quick lookup
+    const profilesMap: Record<string, any> = {}
+    const quizzesMap: Record<string, any> = {}
+    
+    if (employees) {
+      employees.forEach((p: any) => { profilesMap[p.id] = p })
+    }
+    if (quizzes) {
+      quizzes.forEach((q: any) => { quizzesMap[q.id] = q })
+    }
+
+    // Enrich attempts with profile and quiz data
+    const attempts = (rawAttempts || []).map((a: any) => ({
+      ...a,
+      profiles: profilesMap[a.user_id] || null,
+      quizzes: quizzesMap[a.quiz_id] || null,
+    }))
+
+    // Filter to only employees
+    const employeeList = (employees || []).filter((e: any) => e.role === 'employee')
 
     // Create workbook with multiple sheets
     const wb = XLSX.utils.book_new()
@@ -61,7 +85,7 @@ export async function GET(request: NextRequest) {
     const summaryData = [
       { Metric: 'Total Quizzes', Value: quizzes?.length || 0 },
       { Metric: 'Total Attempts', Value: attempts?.length || 0 },
-      { Metric: 'Total Employees', Value: employees?.length || 0 },
+      { Metric: 'Total Employees', Value: employeeList?.length || 0 },
       { Metric: 'Average Score', Value: attempts?.length ? Math.round(attempts.reduce((sum: number, a: any) => sum + (a.score || 0), 0) / attempts.length) + '%' : 'N/A' },
       { Metric: 'Report Generated', Value: new Date().toLocaleString() },
     ]
@@ -108,7 +132,7 @@ export async function GET(request: NextRequest) {
     XLSX.utils.book_append_sheet(wb, wsResults, 'All Results')
 
     // Sheet 4: Employee Stats
-    const employeeStats = (employees || []).map((emp: any) => {
+    const employeeStats = (employeeList || []).map((emp: any) => {
       const empAttempts = (attempts || []).filter((a: any) => a.user_id === emp.id)
       const avgScore = empAttempts.length > 0
         ? Math.round(empAttempts.reduce((sum: number, a: any) => sum + (a.score || 0), 0) / empAttempts.length)
