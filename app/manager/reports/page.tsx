@@ -77,45 +77,35 @@ export default async function ManagerReportsPage() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Reports &amp; Analytics</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">Reports &amp; Analytics</h1>
           <p className="text-muted-foreground mt-1">Overview of quiz performance and employee engagement</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="default" asChild>
-            <a href="/api/reports/download" download>
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Export All Reports (Excel)
-            </a>
-          </Button>
-        </div>
+        <Button variant="default" asChild className="bg-blue-600 hover:bg-blue-700 shadow-md">
+          <a href="/api/reports/download" download>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Export All (Excel)
+          </a>
+        </Button>
       </div>
 
       {/* Export Info Card */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
-        <CardContent className="pt-6">
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <CardContent className="pt-5 pb-5">
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-              <Download className="h-6 w-6 text-blue-600" />
+            <div className="p-3 bg-blue-500 rounded-xl shrink-0">
+              <Download className="h-5 w-5 text-white" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-lg mb-1">Export Reports</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                Download comprehensive Excel reports with multiple sheets:
+              <h3 className="font-bold text-blue-900 mb-1">Export Complete Reports</h3>
+              <p className="text-sm text-blue-700/70 mb-3">
+                Download an Excel file with multiple sheets: Summary, Quiz Performance, All Results, and Employee Stats.
               </p>
-              <ul className="text-sm text-muted-foreground space-y-1 mb-4">
-                <li>• <strong>Summary:</strong> Overview statistics and totals</li>
-                <li>• <strong>Quiz Performance:</strong> Per-quiz metrics, pass rates, and averages</li>
-                <li>• <strong>All Results:</strong> Detailed attempt data with scores and times</li>
-                <li>• <strong>Employee Stats:</strong> Individual employee performance metrics</li>
-              </ul>
-              <div className="flex gap-3">
-                <Button asChild>
-                  <a href="/api/reports/download" download>
-                    <FileSpreadsheet className="mr-2 h-4 w-4" />
-                    Download Complete Report
-                  </a>
-                </Button>
-              </div>
+              <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
+                <a href="/api/reports/download" download>
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Download Report
+                </a>
+              </Button>
             </div>
           </div>
         </CardContent>
@@ -123,54 +113,54 @@ export default async function ManagerReportsPage() {
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-blue-50 border-blue-100">
+          <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <FileQuestion className="h-5 w-5 text-blue-600" />
+              <div className="p-2.5 bg-blue-500 rounded-xl">
+                <FileQuestion className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.totalQuizzes}</p>
-                <p className="text-xs text-muted-foreground">Total Quizzes</p>
+                <p className="text-2xl font-bold text-blue-700">{stats.totalQuizzes}</p>
+                <p className="text-xs text-blue-600/70 font-medium">Total Quizzes</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-green-50 border-green-100">
+          <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+              <div className="p-2.5 bg-green-500 rounded-xl">
+                <CheckCircle className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.totalAttempts}</p>
-                <p className="text-xs text-muted-foreground">Total Completions</p>
+                <p className="text-2xl font-bold text-green-700">{stats.totalAttempts}</p>
+                <p className="text-xs text-green-600/70 font-medium">Total Completions</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-amber-50 border-amber-100">
+          <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                <Target className="h-5 w-5 text-yellow-600" />
+              <div className="p-2.5 bg-amber-500 rounded-xl">
+                <Target className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.averageScore}%</p>
-                <p className="text-xs text-muted-foreground">Average Score</p>
+                <p className="text-2xl font-bold text-amber-700">{stats.averageScore}%</p>
+                <p className="text-xs text-amber-600/70 font-medium">Average Score</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-purple-50 border-purple-100">
+          <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                <Users className="h-5 w-5 text-purple-600" />
+              <div className="p-2.5 bg-purple-500 rounded-xl">
+                <Users className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.uniqueEmployees}</p>
-                <p className="text-xs text-muted-foreground">Active Employees</p>
+                <p className="text-2xl font-bold text-purple-700">{stats.uniqueEmployees}</p>
+                <p className="text-xs text-purple-600/70 font-medium">Active Employees</p>
               </div>
             </div>
           </CardContent>

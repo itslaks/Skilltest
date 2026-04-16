@@ -29,15 +29,16 @@ export async function signUp(formData: FormData) {
   const { error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      emailRedirectTo: getAuthRedirectUrl(),
-      data: {
-        full_name: fullName,
-        employee_id: employeeId,
-        role,
-        department,
-      },
-    },
+    options:
+      {
+        emailRedirectTo: getAuthRedirectUrl(),
+        data: {
+          full_name: fullName,
+          employee_id: employeeId,
+          role,
+          department,
+        },
+      }
   })
 
   if (error) {
@@ -72,9 +73,17 @@ export async function signIn(formData: FormData) {
     return { error: error.message }
   }
 
-  const role = data.user?.user_metadata?.role || 'employee'
+  // Get the profile to check the actual role from database
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', data.user.id)
+    .single()
+
+  // Use profile role if available, fallback to user_metadata
+  const role = profile?.role || data.user?.user_metadata?.role || 'employee'
   const defaultRedirect = role === 'manager' || role === 'admin' ? '/manager' : '/employee'
-  
+
   redirect(redirectTo || defaultRedirect)
 }
 
@@ -112,7 +121,7 @@ export async function signOut() {
 export async function getUser() {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
-  
+
   if (error || !user) {
     return null
   }
@@ -123,7 +132,7 @@ export async function getUser() {
 export async function getUserProfile() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-  
+
   if (authError || !user) {
     return null
   }
@@ -152,7 +161,7 @@ export async function updateProfile(formData: FormData) {
 
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-  
+
   if (authError || !user) {
     return { error: 'Not authenticated' }
   }

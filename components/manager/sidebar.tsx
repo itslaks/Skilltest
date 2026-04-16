@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { Profile } from '@/lib/types/database'
 import {
@@ -38,7 +38,12 @@ const navigation = [
 
 export function ManagerSidebar({ profile }: ManagerSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
+
+  const handleNavigation = (href: string) => {
+    router.push(href)
+  }
 
   return (
     <>
@@ -48,47 +53,62 @@ export function ManagerSidebar({ profile }: ManagerSidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-card border-r transition-all duration-300',
+          'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 shadow-xl',
+          'bg-[oklch(0.18_0.04_255)] text-[oklch(0.92_0.01_240)]',
           collapsed ? 'w-16' : 'w-64'
         )}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-2 border-b px-4">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5 text-primary-foreground" />
-          </div>
-          {!collapsed && <span className="font-bold text-lg">SkillTest</span>}
+        <div className="flex h-16 items-center gap-3 px-4 border-b border-white/10">
+          <button
+            onClick={() => handleNavigation('/manager')}
+            className="flex items-center gap-3"
+          >
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shrink-0 shadow-lg">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            {!collapsed && (
+              <div>
+                <span className="font-bold text-lg text-white tracking-tight">SkillTest</span>
+                <p className="text-[10px] text-white/50 -mt-0.5">Manager Portal</p>
+              </div>
+            )}
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {navigation.map((item) => {
             const isActive = pathname === item.href || 
               (item.href !== '/manager' && pathname.startsWith(item.href))
             return (
-              <Link
+              <button
                 key={item.name}
-                href={item.href}
+                onClick={() => handleNavigation(item.href)}
+                title={collapsed ? item.name : undefined}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    ? 'bg-blue-500/30 text-white border border-blue-400/30 shadow-sm'
+                    : 'text-white/60 hover:bg-white/10 hover:text-white'
                 )}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
+                <item.icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-blue-300' : '')} />
                 {!collapsed && <span>{item.name}</span>}
-              </Link>
+                {!collapsed && isActive && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400" />
+                )}
+              </button>
             )
           })}
         </nav>
 
         {/* Collapse toggle */}
-        <div className="p-3 border-t">
+        <div className="px-3 py-2 border-t border-white/10">
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-center"
+            className="w-full justify-center text-white/50 hover:text-white hover:bg-white/10"
             onClick={() => setCollapsed(!collapsed)}
           >
             {collapsed ? (
@@ -100,30 +120,31 @@ export function ManagerSidebar({ profile }: ManagerSidebarProps) {
         </div>
 
         {/* User section */}
-        <div className="p-3 border-t">
+        <div className="p-3 border-t border-white/10">
           <div className={cn(
-            'flex items-center gap-3',
+            'flex items-center gap-3 p-2 rounded-lg bg-white/5',
             collapsed && 'justify-center'
           )}>
-            <Avatar className="h-9 w-9 shrink-0">
+            <Avatar className="h-9 w-9 shrink-0 ring-2 ring-blue-400/30">
               <AvatarImage src={profile?.avatar_url || undefined} />
-              <AvatarFallback>
+              <AvatarFallback className="bg-blue-500/30 text-white text-sm font-semibold">
                 {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'M'}
               </AvatarFallback>
             </Avatar>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{profile?.full_name || 'Manager'}</p>
-                <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+                <p className="text-sm font-semibold text-white truncate">{profile?.full_name || 'Manager'}</p>
+                <p className="text-xs text-white/50 truncate">{profile?.email}</p>
               </div>
             )}
           </div>
-          <form action={signOut} className="mt-3">
+          <form action={signOut} className="mt-2">
             <Button 
+              type="submit"
               variant="ghost" 
               size="sm" 
               className={cn(
-                'text-muted-foreground hover:text-foreground',
+                'text-white/50 hover:text-red-300 hover:bg-red-500/10 transition-colors',
                 collapsed ? 'w-full justify-center' : 'w-full justify-start'
               )}
             >

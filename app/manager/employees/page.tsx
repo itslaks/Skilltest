@@ -43,56 +43,56 @@ export default async function ManagerEmployeesPage() {
 
       {/* Stats overview */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-blue-50 border-blue-100">
+          <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <Users className="h-5 w-5 text-blue-600" />
+              <div className="p-2.5 bg-blue-500 rounded-xl">
+                <Users className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{employees.length}</p>
-                <p className="text-xs text-muted-foreground">Total Employees</p>
+                <p className="text-2xl font-bold text-blue-700">{employees.length}</p>
+                <p className="text-xs text-blue-600/70 font-medium">Total Employees</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-purple-50 border-purple-100">
+          <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                <Building2 className="h-5 w-5 text-purple-600" />
+              <div className="p-2.5 bg-purple-500 rounded-xl">
+                <Building2 className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{domains.length}</p>
-                <p className="text-xs text-muted-foreground">Domains</p>
+                <p className="text-2xl font-bold text-purple-700">{domains.length}</p>
+                <p className="text-xs text-purple-600/70 font-medium">Domains</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-green-50 border-green-100">
+          <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                <Trophy className="h-5 w-5 text-green-600" />
+              <div className="p-2.5 bg-green-500 rounded-xl">
+                <Trophy className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
+                <p className="text-2xl font-bold text-green-700">
                   {employees.filter((e: any) => e.user_stats?.[0]?.total_quizzes_taken > 0).length}
                 </p>
-                <p className="text-xs text-muted-foreground">Active Learners</p>
+                <p className="text-xs text-green-600/70 font-medium">Active Learners</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-orange-50 border-orange-100">
+          <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                <History className="h-5 w-5 text-orange-600" />
+              <div className="p-2.5 bg-orange-500 rounded-xl">
+                <History className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{importHistory.length}</p>
-                <p className="text-xs text-muted-foreground">Import Operations</p>
+                <p className="text-2xl font-bold text-orange-700">{importHistory.length}</p>
+                <p className="text-xs text-orange-600/70 font-medium">Import Operations</p>
               </div>
             </div>
           </CardContent>
@@ -122,10 +122,10 @@ export default async function ManagerEmployeesPage() {
 
       {/* Tabs: All employees / By Domain / Import History */}
       <Tabs defaultValue="all" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">All Employees</TabsTrigger>
-          <TabsTrigger value="domains">By Domain</TabsTrigger>
-          <TabsTrigger value="history">Import History</TabsTrigger>
+        <TabsList className="bg-muted/60 p-1">
+          <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">All Employees ({employees.length})</TabsTrigger>
+          <TabsTrigger value="domains" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">By Domain ({domains.length})</TabsTrigger>
+          <TabsTrigger value="history" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Import History</TabsTrigger>
         </TabsList>
 
         {/* All employees */}
@@ -143,33 +143,31 @@ export default async function ManagerEmployeesPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="text-left p-3 font-medium">Employee</th>
-                        <th className="text-left p-3 font-medium">Email</th>
-                        <th className="text-left p-3 font-medium">Domain</th>
-                        <th className="text-left p-3 font-medium">Employee ID</th>
-                        <th className="text-left p-3 font-medium">Stats</th>
+                      <tr className="border-b bg-slate-50">
+                        <th className="text-left p-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Employee</th>
+                        <th className="text-left p-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Email</th>
+                        <th className="text-left p-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Domain</th>
+                        <th className="text-left p-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Employee ID</th>
+                        <th className="text-left p-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">Performance</th>
                       </tr>
                     </thead>
                     <tbody>
                       {employees.map((emp: any) => {
                         const stats = emp.user_stats?.[0]
                         return (
-                          <tr key={emp.id} className="border-b hover:bg-muted/30 transition-colors">
+                          <tr key={emp.id} className="border-b hover:bg-blue-50/30 transition-colors">
                             <td className="p-3">
                               <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback className="text-xs">
-                                    {emp.full_name?.charAt(0) || emp.email?.charAt(0) || '?'}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="font-medium">{emp.full_name || 'Unnamed'}</span>
+                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                                  {emp.full_name?.charAt(0) || emp.email?.charAt(0) || '?'}
+                                </div>
+                                <span className="font-semibold">{emp.full_name || 'Unnamed'}</span>
                               </div>
                             </td>
-                            <td className="p-3 text-muted-foreground">{emp.email}</td>
+                            <td className="p-3 text-muted-foreground text-sm">{emp.email}</td>
                             <td className="p-3">
                               {emp.domain ? (
-                                <Badge variant="outline" className="text-xs">{emp.domain}</Badge>
+                                <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">{emp.domain}</Badge>
                               ) : (
                                 <span className="text-xs text-muted-foreground">—</span>
                               )}
@@ -178,17 +176,19 @@ export default async function ManagerEmployeesPage() {
                             <td className="p-3">
                               {stats ? (
                                 <div className="flex items-center gap-3 text-xs">
-                                  <span className="flex items-center gap-1">
-                                    <Trophy className="h-3 w-3 text-yellow-500" />
+                                  <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700 font-medium">
+                                    <Trophy className="h-3 w-3" />
                                     {stats.total_points || 0} pts
                                   </span>
-                                  <span className="flex items-center gap-1">
-                                    <Flame className="h-3 w-3 text-orange-500" />
-                                    {stats.current_streak || 0}
-                                  </span>
+                                  {stats.current_streak > 0 && (
+                                    <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-orange-50 text-orange-700 font-medium">
+                                      <Flame className="h-3 w-3" />
+                                      {stats.current_streak}
+                                    </span>
+                                  )}
                                 </div>
                               ) : (
-                                <span className="text-xs text-muted-foreground">No activity</span>
+                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">No activity yet</span>
                               )}
                             </td>
                           </tr>

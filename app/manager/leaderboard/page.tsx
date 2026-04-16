@@ -154,69 +154,64 @@ export default async function ManagerLeaderboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/manager"><ArrowLeft className="h-4 w-4" /></Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <Crown className="h-8 w-8 text-yellow-500" />
-              Leaderboards
-            </h1>
-            <p className="text-muted-foreground">Track employee performance across all assessments</p>
-          </div>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Crown className="h-7 w-7 text-yellow-500" />
+            Leaderboards
+          </h1>
+          <p className="text-muted-foreground mt-1">Track employee performance across all assessments</p>
         </div>
       </div>
 
       {/* Stats Overview */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-yellow-500/10 to-amber-600/10">
+        <Card className="bg-amber-50 border-amber-100">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-yellow-500 to-amber-600">
+            <div className="p-2.5 bg-amber-500 rounded-xl">
               <Users className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{cumulativeLeaderboard.length}</p>
-              <p className="text-xs text-muted-foreground">Total Participants</p>
+              <p className="text-2xl font-bold text-amber-700">{cumulativeLeaderboard.length}</p>
+              <p className="text-xs text-amber-600/70 font-medium">Total Participants</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-500/10 to-emerald-600/10">
+        <Card className="bg-green-50 border-green-100">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600">
+            <div className="p-2.5 bg-green-500 rounded-xl">
               <Target className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{quizzes?.length || 0}</p>
-              <p className="text-xs text-muted-foreground">Total Quizzes</p>
+              <p className="text-2xl font-bold text-green-700">{quizzes?.length || 0}</p>
+              <p className="text-xs text-green-600/70 font-medium">Total Quizzes</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-500/10 to-indigo-600/10">
+        <Card className="bg-blue-50 border-blue-100">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
+            <div className="p-2.5 bg-blue-500 rounded-xl">
               <TrendingUp className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold text-blue-700">
                 {cumulativeLeaderboard.length > 0 
                   ? Math.round(cumulativeLeaderboard.reduce((a, b) => a + b.avg_score, 0) / cumulativeLeaderboard.length)
                   : 0}%
               </p>
-              <p className="text-xs text-muted-foreground">Avg Score</p>
+              <p className="text-xs text-blue-600/70 font-medium">Avg Score</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-500/10 to-violet-600/10">
+        <Card className="bg-purple-50 border-purple-100">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600">
+            <div className="p-2.5 bg-purple-500 rounded-xl">
               <Trophy className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold">
+              <p className="text-2xl font-bold text-purple-700">
                 {cumulativeLeaderboard.reduce((a, b) => a + b.total_points, 0)}
               </p>
-              <p className="text-xs text-muted-foreground">Total Points Earned</p>
+              <p className="text-xs text-purple-600/70 font-medium">Total Points Earned</p>
             </div>
           </CardContent>
         </Card>

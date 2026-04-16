@@ -38,98 +38,115 @@ export default async function LeaderboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-          <Crown className="h-8 w-8 text-yellow-500" />
-          Leaderboard
-        </h1>
-        <p className="text-muted-foreground">Top performers across all assessments</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Crown className="h-7 w-7 text-yellow-500" />
+            Leaderboard
+          </h1>
+          <p className="text-muted-foreground mt-1">Top performers across all assessments</p>
+        </div>
       </div>
 
       {/* Top 3 podium */}
       {hasLeaderboardData && leaderboard.length >= 3 && (
-        <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
-          {/* 2nd place */}
-          <div className="flex flex-col items-center pt-8">
-            <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-2xl mb-2">🥈</div>
-            <p className="font-medium text-sm text-center truncate w-full">{(leaderboard[1] as any).profiles?.full_name || 'User'}</p>
-            <p className="text-2xl font-bold text-gray-600">{leaderboard[1].total_points}</p>
-            <p className="text-xs text-muted-foreground">points</p>
-          </div>
+        <Card className="bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-yellow-200 shadow-md overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-center text-lg font-bold text-amber-800">🏆 Top Performers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto py-4">
+              {/* 2nd place */}
+              <div className="flex flex-col items-center gap-2 pt-8">
+                <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center text-2xl ring-4 ring-slate-300 shadow-md">🥈</div>
+                <p className="font-semibold text-sm text-center truncate w-full text-slate-700">{(leaderboard[1] as any).profiles?.full_name?.split(' ')[0] || 'User'}</p>
+                <p className="text-xl font-bold text-slate-600">{leaderboard[1].total_points} <span className="text-xs font-normal text-muted-foreground">pts</span></p>
+              </div>
 
-          {/* 1st place */}
-          <div className="flex flex-col items-center">
-            <div className="w-20 h-20 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center text-3xl mb-2 ring-4 ring-yellow-300">🥇</div>
-            <p className="font-semibold text-center truncate w-full">{(leaderboard[0] as any).profiles?.full_name || 'User'}</p>
-            <p className="text-3xl font-bold text-yellow-600">{leaderboard[0].total_points}</p>
-            <p className="text-xs text-muted-foreground">points</p>
-          </div>
+              {/* 1st place */}
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-20 h-20 rounded-full bg-yellow-200 flex items-center justify-center text-3xl ring-4 ring-yellow-400 shadow-lg">🥇</div>
+                <p className="font-bold text-center truncate w-full text-amber-800">{(leaderboard[0] as any).profiles?.full_name?.split(' ')[0] || 'User'}</p>
+                <p className="text-2xl font-bold text-yellow-600">{leaderboard[0].total_points} <span className="text-xs font-normal text-muted-foreground">pts</span></p>
+              </div>
 
-          {/* 3rd place */}
-          <div className="flex flex-col items-center pt-12">
-            <div className="w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/20 flex items-center justify-center text-xl mb-2">🥉</div>
-            <p className="font-medium text-sm text-center truncate w-full">{(leaderboard[2] as any).profiles?.full_name || 'User'}</p>
-            <p className="text-xl font-bold text-amber-600">{leaderboard[2].total_points}</p>
-            <p className="text-xs text-muted-foreground">points</p>
-          </div>
-        </div>
+              {/* 3rd place */}
+              <div className="flex flex-col items-center gap-2 pt-12">
+                <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center text-xl ring-4 ring-amber-300 shadow-md">🥉</div>
+                <p className="font-semibold text-sm text-center truncate w-full text-amber-700">{(leaderboard[2] as any).profiles?.full_name?.split(' ')[0] || 'User'}</p>
+                <p className="text-lg font-bold text-amber-600">{leaderboard[2].total_points} <span className="text-xs font-normal text-muted-foreground">pts</span></p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Full leaderboard */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Rankings</CardTitle>
+      <Card className="shadow-sm">
+        <CardHeader className="border-b bg-muted/30">
+          <CardTitle className="text-base">All Rankings</CardTitle>
+          <CardDescription>Based on total points earned</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
+        <CardContent className="p-0">
+          <div className="divide-y">
             {leaderboard?.map((entry: any, i: number) => (
               <div
                 key={entry.user_id}
-                className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                  entry.user_id === user?.id ? 'bg-primary/5 border-primary/30' : ''
+                className={`flex items-center justify-between px-4 py-3 transition-colors ${
+                  entry.user_id === user?.id 
+                    ? 'bg-blue-50 border-l-4 border-l-blue-500' 
+                    : 'hover:bg-muted/30'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    i === 0 ? 'bg-yellow-100 text-yellow-700'
-                    : i === 1 ? 'bg-gray-100 text-gray-700'
-                    : i === 2 ? 'bg-amber-100 text-amber-700'
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                    i === 0 ? 'bg-yellow-100 text-yellow-700 ring-2 ring-yellow-300'
+                    : i === 1 ? 'bg-slate-100 text-slate-700 ring-2 ring-slate-300'
+                    : i === 2 ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300'
                     : 'bg-muted text-muted-foreground'
                   }`}>
                     {i + 1}
                   </div>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${
+                    i === 0 ? 'bg-gradient-to-br from-yellow-400 to-amber-500'
+                    : 'bg-gradient-to-br from-blue-400 to-indigo-500'
+                  }`}>
+                    {entry.profiles?.full_name?.charAt(0) || '?'}
+                  </div>
                   <div>
-                    <p className="font-medium text-sm">
+                    <p className="font-semibold text-sm">
                       {entry.profiles?.full_name || 'Unknown'}
                       {entry.user_id === user?.id && (
-                        <Badge variant="secondary" className="ml-2 text-[10px] px-1.5">You</Badge>
+                        <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">You</span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">{entry.profiles?.department || ''}</p>
+                    <p className="text-xs text-muted-foreground">{entry.profiles?.department || 'Employee'}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 text-yellow-500" />
-                    <span className="font-semibold">{entry.total_points}</span>
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
+                    <Star className="h-3.5 w-3.5" />
+                    <span className="font-bold">{entry.total_points}</span>
                   </div>
-                  <div className="hidden sm:flex items-center gap-1 text-muted-foreground">
-                    <Flame className="h-4 w-4 text-orange-500" />
-                    {entry.current_streak}
-                  </div>
-                  <div className="hidden sm:flex items-center gap-1 text-muted-foreground">
-                    <Trophy className="h-4 w-4 text-blue-500" />
-                    {entry.tests_completed}
+                  {entry.current_streak > 0 && (
+                    <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-50 text-orange-600">
+                      <Flame className="h-3.5 w-3.5" />
+                      <span className="font-medium">{entry.current_streak}</span>
+                    </div>
+                  )}
+                  <div className="hidden sm:flex items-center gap-1 text-muted-foreground text-xs">
+                    <Trophy className="h-3.5 w-3.5 text-blue-400" />
+                    <span>{entry.tests_completed}</span>
                   </div>
                 </div>
               </div>
             ))}
             {(!hasLeaderboardData) && (
-              <div className="text-center py-12">
-                <Trophy className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <div className="text-center py-16">
+                <Trophy className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Rankings Yet</h3>
-                <p className="text-muted-foreground">Complete quizzes to appear on the leaderboard!</p>
+                <p className="text-muted-foreground text-sm">Complete quizzes to appear on the leaderboard!</p>
               </div>
             )}
           </div>

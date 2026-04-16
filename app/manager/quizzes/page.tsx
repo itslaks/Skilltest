@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { Plus, FileQuestion, MoreHorizontal, Pencil, Trash2, Eye, Power, Upload, Trophy, FileSpreadsheet } from 'lucide-react'
+import { Plus, FileQuestion, MoreHorizontal, Pencil, Trash2, Eye, Power, Upload, Trophy, FileSpreadsheet, FileText, Sparkles } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,14 +38,14 @@ export default async function QuizzesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Quizzes</h1>
           <p className="text-muted-foreground">
             Create and manage your employee assessments
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
             <Link href="/manager/leaderboard">
               <Trophy className="mr-2 h-4 w-4" />
@@ -61,8 +61,23 @@ export default async function QuizzesPage() {
         </div>
       </div>
 
-      {/* Quick Actions Cards */}
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Quick Actions Cards - Upload Features */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-200 dark:border-violet-800">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
+                <FileText className="h-5 w-5 text-violet-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-violet-800 dark:text-violet-200">PDF/DOCX Upload</h3>
+                <p className="text-sm text-violet-700/80 dark:text-violet-300/80">
+                  Create a quiz, then click &quot;Edit Quiz&quot; to upload PDF/DOCX and generate questions with AI.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-3">
@@ -70,9 +85,9 @@ export default async function QuizzesPage() {
                 <Upload className="h-5 w-5 text-amber-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-amber-800 dark:text-amber-200">Import Questions from Excel</h3>
+                <h3 className="font-medium text-amber-800 dark:text-amber-200">Excel Import</h3>
                 <p className="text-sm text-amber-700/80 dark:text-amber-300/80">
-                  Create a quiz first, then use the &ldquo;Import Questions&rdquo; feature in the quiz editor.
+                  Import questions from Excel (.xlsx) in the quiz editor.
                 </p>
               </div>
             </div>
@@ -82,12 +97,12 @@ export default async function QuizzesPage() {
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                <FileSpreadsheet className="h-5 w-5 text-purple-600" />
+                <Sparkles className="h-5 w-5 text-purple-600" />
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-purple-800 dark:text-purple-200">Analyze Assessment Data</h3>
+                <h3 className="font-medium text-purple-800 dark:text-purple-200">AI Analytics</h3>
                 <p className="text-sm text-purple-700/80 dark:text-purple-300/80">
-                  Go to <Link href="/manager/analytics" className="underline font-medium">Analytics & AI</Link> to import CSV results and chat with AI.
+                  <Link href="/manager/analytics" className="underline font-medium">Analytics & AI</Link> to analyze results.
                 </p>
               </div>
             </div>
@@ -126,6 +141,12 @@ export default async function QuizzesPage() {
                           Edit Quiz
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Questions
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <QuizDeleteButton quizId={quiz.id} quizTitle={quiz.title} />
                     </DropdownMenuContent>
@@ -157,11 +178,19 @@ export default async function QuizzesPage() {
 
                 <div className="flex items-center justify-between pt-2 border-t">
                   <QuizToggleActive quizId={quiz.id} isActive={quiz.is_active} />
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/manager/quizzes/${quiz.id}`}>
-                      Manage
-                    </Link>
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+                        <Upload className="mr-1 h-3 w-3" />
+                        Upload
+                      </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/manager/quizzes/${quiz.id}`}>
+                        Manage
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

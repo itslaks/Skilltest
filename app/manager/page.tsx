@@ -69,7 +69,10 @@ export default async function ManagerDashboard() {
       icon: FileQuestion,
       description: 'Active assessments',
       gradient: 'from-blue-500 to-blue-600',
-      bgGradient: 'from-blue-500/10 to-blue-600/10',
+      bgGradient: 'from-blue-50 to-blue-50/50',
+      border: 'border-blue-100',
+      iconBg: 'bg-blue-500',
+      text: 'text-blue-700',
     },
     {
       title: 'Total Attempts',
@@ -77,7 +80,10 @@ export default async function ManagerDashboard() {
       icon: CheckCircle2,
       description: 'Completed assessments',
       gradient: 'from-green-500 to-emerald-600',
-      bgGradient: 'from-green-500/10 to-emerald-600/10',
+      bgGradient: 'from-green-50 to-emerald-50/50',
+      border: 'border-green-100',
+      iconBg: 'bg-green-500',
+      text: 'text-green-700',
     },
     {
       title: 'Average Score',
@@ -85,7 +91,10 @@ export default async function ManagerDashboard() {
       icon: TrendingUp,
       description: 'Across all quizzes',
       gradient: 'from-purple-500 to-violet-600',
-      bgGradient: 'from-purple-500/10 to-violet-600/10',
+      bgGradient: 'from-purple-50 to-violet-50/50',
+      border: 'border-purple-100',
+      iconBg: 'bg-purple-500',
+      text: 'text-purple-700',
     },
     {
       title: 'Active Employees',
@@ -93,132 +102,148 @@ export default async function ManagerDashboard() {
       icon: Users,
       description: 'Have taken quizzes',
       gradient: 'from-orange-500 to-amber-600',
-      bgGradient: 'from-orange-500/10 to-amber-600/10',
+      bgGradient: 'from-orange-50 to-amber-50/50',
+      border: 'border-orange-100',
+      iconBg: 'bg-orange-500',
+      text: 'text-orange-700',
     },
   ]
 
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-primary-foreground">
-        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
-        <div className="relative z-10 flex items-center justify-between">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-6 md:p-8 text-white shadow-xl shadow-blue-500/20">
+        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-5 w-5" />
-              <span className="text-sm font-medium opacity-90">Manager Dashboard</span>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="px-3 py-1 rounded-full bg-white/20 text-xs font-semibold tracking-wide uppercase">
+                Manager Dashboard
+              </div>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">
-              Welcome back, {profile?.full_name?.split(' ')[0] || 'Manager'}!
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+              Welcome back, {profile?.full_name?.split(' ')[0] || 'Manager'}! 👋
             </h1>
-            <p className="text-primary-foreground/80 max-w-md">
-              Here&apos;s an overview of your assessments and employee performance.
+            <p className="text-white/75 max-w-md text-sm md:text-base">
+              Here&apos;s an overview of your assessments and employee performance today.
             </p>
           </div>
-          <Button 
-            asChild 
-            size="lg" 
-            className="bg-white text-primary hover:bg-white/90 shadow-lg"
-          >
-            <Link href="/manager/quizzes/new">
-              <Plus className="mr-2 h-5 w-5" />
-              Create Quiz
-            </Link>
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              asChild 
+              size="lg" 
+              className="bg-white text-blue-700 hover:bg-blue-50 shadow-lg font-semibold"
+            >
+              <Link href="/manager/quizzes/new">
+                <Plus className="mr-2 h-5 w-5" />
+                Create Quiz
+              </Link>
+            </Button>
+            <Button 
+              asChild 
+              variant="outline"
+              size="lg"
+              className="border-white/30 text-white hover:bg-white/10 bg-white/10"
+            >
+              <Link href="/manager/analytics">
+                <Brain className="mr-2 h-4 w-4" />
+                AI Tools
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className={`relative overflow-hidden border-0 shadow-lg bg-gradient-to-br ${stat.bgGradient}`}>
-            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br opacity-20 rounded-full blur-2xl" />
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card key={stat.title} className={`relative overflow-hidden bg-gradient-to-br ${stat.bgGradient} ${stat.border} shadow-sm hover:shadow-md transition-shadow`}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
                 {stat.title}
               </CardTitle>
-              <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.gradient}`}>
-                <stat.icon className="h-4 w-4 text-white" />
+              <div className={`p-1.5 md:p-2 rounded-lg ${stat.iconBg}`}>
+                <stat.icon className="h-3 w-3 md:h-4 md:w-4 text-white" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+              <div className={`text-2xl md:text-3xl font-bold ${stat.text}`}>{stat.value}</div>
+              <p className="text-[10px] md:text-xs text-muted-foreground mt-1">{stat.description}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <Link href="/manager/quizzes" className="group">
           <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
-            <CardContent className="pt-6 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
-                <FileQuestion className="h-6 w-6 text-blue-600" />
+            <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center gap-3">
+              <div className="p-2 md:p-3 rounded-xl bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                <FileQuestion className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
               </div>
-              <div>
-                <h3 className="font-semibold group-hover:text-primary transition-colors">Manage Quizzes</h3>
-                <p className="text-sm text-muted-foreground">View and edit assessments</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">Manage Quizzes</h3>
+                <p className="text-xs text-muted-foreground hidden md:block">View and edit assessments</p>
               </div>
-              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="hidden lg:block h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
             </CardContent>
           </Card>
         </Link>
         <Link href="/manager/employees" className="group">
           <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
-            <CardContent className="pt-6 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
-                <Users className="h-6 w-6 text-green-600" />
+            <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center gap-3">
+              <div className="p-2 md:p-3 rounded-xl bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                <Users className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
               </div>
-              <div>
-                <h3 className="font-semibold group-hover:text-primary transition-colors">Employees</h3>
-                <p className="text-sm text-muted-foreground">Import and assign</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">Employees</h3>
+                <p className="text-xs text-muted-foreground hidden md:block">Import and assign</p>
               </div>
-              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="hidden lg:block h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
             </CardContent>
           </Card>
         </Link>
         <Link href="/manager/leaderboard" className="group">
           <Card className="h-full hover:shadow-lg hover:border-yellow-500/50 transition-all cursor-pointer border-yellow-200/50">
-            <CardContent className="pt-6 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
-                <Trophy className="h-6 w-6 text-yellow-600" />
+            <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center gap-3">
+              <div className="p-2 md:p-3 rounded-xl bg-yellow-500/10 group-hover:bg-yellow-500/20 transition-colors">
+                <Trophy className="h-5 w-5 md:h-6 md:w-6 text-yellow-600" />
               </div>
-              <div>
-                <h3 className="font-semibold group-hover:text-yellow-600 transition-colors">Leaderboard</h3>
-                <p className="text-sm text-muted-foreground">Rankings & scores</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm group-hover:text-yellow-600 transition-colors">Leaderboard</h3>
+                <p className="text-xs text-muted-foreground hidden md:block">Rankings & scores</p>
               </div>
-              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-yellow-600 group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="hidden lg:block h-5 w-5 text-muted-foreground group-hover:text-yellow-600 group-hover:translate-x-1 transition-all" />
             </CardContent>
           </Card>
         </Link>
         <Link href="/manager/analytics" className="group">
           <Card className="h-full hover:shadow-lg hover:border-purple-500/50 transition-all cursor-pointer border-purple-200/50">
-            <CardContent className="pt-6 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
-                <Brain className="h-6 w-6 text-purple-600" />
+            <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center gap-3">
+              <div className="p-2 md:p-3 rounded-xl bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                <Brain className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
               </div>
-              <div>
-                <h3 className="font-semibold group-hover:text-purple-600 transition-colors">Analytics & AI</h3>
-                <p className="text-sm text-muted-foreground">Import & analyze</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm group-hover:text-purple-600 transition-colors">Analytics & AI</h3>
+                <p className="text-xs text-muted-foreground hidden md:block">Import & analyze</p>
               </div>
-              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="hidden lg:block h-5 w-5 text-muted-foreground group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
             </CardContent>
           </Card>
         </Link>
-        <Link href="/manager/reports" className="group">
+        <Link href="/manager/reports" className="group col-span-2 md:col-span-1">
           <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer">
-            <CardContent className="pt-6 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
-                <BarChart3 className="h-6 w-6 text-orange-600" />
+            <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center gap-3">
+              <div className="p-2 md:p-3 rounded-xl bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
+                <BarChart3 className="h-5 w-5 md:h-6 md:w-6 text-orange-600" />
               </div>
-              <div>
-                <h3 className="font-semibold group-hover:text-primary transition-colors">Reports</h3>
-                <p className="text-sm text-muted-foreground">Detailed analytics</p>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-sm group-hover:text-primary transition-colors">Reports</h3>
+                <p className="text-xs text-muted-foreground hidden md:block">Detailed analytics</p>
               </div>
-              <ArrowRight className="ml-auto h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="hidden lg:block h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
             </CardContent>
           </Card>
         </Link>
@@ -239,13 +264,14 @@ export default async function ManagerDashboard() {
               </Link>
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4">
             {recentQuizzes && recentQuizzes.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {recentQuizzes.map((quiz: any) => (
-                  <div 
-                    key={quiz.id} 
-                    className="flex items-center justify-between p-3 rounded-lg border"
+                  <Link 
+                    key={quiz.id}
+                    href={`/manager/quizzes/${quiz.id}`}
+                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{quiz.title}</p>
@@ -262,7 +288,7 @@ export default async function ManagerDashboard() {
                     }`}>
                       {quiz.is_active ? 'Active' : 'Draft'}
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (

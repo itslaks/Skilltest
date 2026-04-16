@@ -32,7 +32,9 @@ export default async function EmployeeDashboard() {
       suffix: '',
       icon: Star,
       gradient: 'from-yellow-500 to-amber-600',
-      bgGradient: 'from-yellow-500/10 to-amber-600/10',
+      bg: 'bg-amber-50 border-amber-100',
+      iconBg: 'bg-amber-500',
+      text: 'text-amber-700',
     },
     {
       title: 'Current Streak',
@@ -40,7 +42,9 @@ export default async function EmployeeDashboard() {
       suffix: ' days',
       icon: Flame,
       gradient: 'from-orange-500 to-red-600',
-      bgGradient: 'from-orange-500/10 to-red-600/10',
+      bg: 'bg-orange-50 border-orange-100',
+      iconBg: 'bg-orange-500',
+      text: 'text-orange-700',
     },
     {
       title: 'Quizzes Done',
@@ -48,7 +52,9 @@ export default async function EmployeeDashboard() {
       suffix: '',
       icon: Target,
       gradient: 'from-green-500 to-emerald-600',
-      bgGradient: 'from-green-500/10 to-emerald-600/10',
+      bg: 'bg-green-50 border-green-100',
+      iconBg: 'bg-green-500',
+      text: 'text-green-700',
     },
     {
       title: 'Average Score',
@@ -56,43 +62,53 @@ export default async function EmployeeDashboard() {
       suffix: '%',
       icon: Trophy,
       gradient: 'from-blue-500 to-indigo-600',
-      bgGradient: 'from-blue-500/10 to-indigo-600/10',
+      bg: 'bg-blue-50 border-blue-100',
+      iconBg: 'bg-blue-500',
+      text: 'text-blue-700',
     },
   ]
 
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/80 p-8 text-primary-foreground">
-        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="h-5 w-5" />
-            <span className="text-sm font-medium opacity-90">Employee Dashboard</span>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-6 md:p-8 text-white shadow-xl shadow-blue-500/20">
+        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 -mb-20 -ml-16 w-60 h-60 bg-indigo-500/20 rounded-full blur-3xl" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-semibold tracking-wide uppercase mb-3">
+              <Sparkles className="h-3.5 w-3.5" />
+              Employee Dashboard
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
+              Hey, {profile?.full_name?.split(' ')[0] || 'there'}! 👋
+            </h1>
+            <p className="text-white/75 max-w-md text-sm md:text-base">
+              Keep learning, earn badges, and climb the leaderboard!
+            </p>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">
-            Welcome back, {profile?.full_name?.split(' ')[0] || 'there'}!
-          </h1>
-          <p className="text-primary-foreground/80 max-w-md">
-            Track your progress, complete quizzes, and climb the leaderboard.
-          </p>
+          <Button asChild size="lg" className="bg-white text-blue-700 hover:bg-blue-50 shadow-lg font-semibold w-full sm:w-auto">
+            <Link href="/employee/quizzes">
+              <FileQuestion className="mr-2 h-5 w-5" />
+              Take a Quiz
+            </Link>
+          </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
-          <Card key={stat.title} className={`relative overflow-hidden border-0 shadow-lg bg-gradient-to-br ${stat.bgGradient}`}>
+          <Card key={stat.title} className={`relative overflow-hidden shadow-sm hover:shadow-md transition-shadow ${stat.bg}`}>
             <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br opacity-20 rounded-full blur-2xl" />
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-              <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.gradient}`}>
+              <div className={`p-2 rounded-lg ${stat.iconBg}`}>
                 <stat.icon className="h-4 w-4 text-white" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
+              <div className={`text-3xl font-bold ${stat.text}`}>
                 {stat.value}
                 {stat.suffix && <span className="text-base font-normal text-muted-foreground">{stat.suffix}</span>}
               </div>

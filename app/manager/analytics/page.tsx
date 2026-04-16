@@ -62,15 +62,12 @@ export default async function AnalyticsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/manager"><ArrowLeft className="h-4 w-4" /></Link>
-        </Button>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <BarChart3 className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <BarChart3 className="h-7 w-7 text-purple-600" />
             Analytics & AI Insights
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mt-1">
             Upload assessment data, analyze results, and get AI-powered insights
           </p>
         </div>
@@ -78,47 +75,47 @@ export default async function AnalyticsPage() {
 
       {/* Stats Overview */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/10">
+        <Card className="bg-blue-50 border-blue-100">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600">
+            <div className="p-2.5 bg-blue-500 rounded-xl">
               <Target className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{totalAttempts}</p>
-              <p className="text-xs text-muted-foreground">Total Attempts</p>
+              <p className="text-2xl font-bold text-blue-700">{totalAttempts}</p>
+              <p className="text-xs text-blue-600/70 font-medium">Total Attempts</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/10">
+        <Card className="bg-green-50 border-green-100">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-green-600">
+            <div className="p-2.5 bg-green-500 rounded-xl">
               <TrendingUp className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{avgScore}%</p>
-              <p className="text-xs text-muted-foreground">Average Score</p>
+              <p className="text-2xl font-bold text-green-700">{avgScore}%</p>
+              <p className="text-xs text-green-600/70 font-medium">Average Score</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/10">
+        <Card className="bg-purple-50 border-purple-100">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600">
+            <div className="p-2.5 bg-purple-500 rounded-xl">
               <Trophy className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{totalCorrect}/{totalQuestions}</p>
-              <p className="text-xs text-muted-foreground">Correct Answers</p>
+              <p className="text-2xl font-bold text-purple-700">{totalCorrect}/{totalQuestions}</p>
+              <p className="text-xs text-purple-600/70 font-medium">Correct Answers</p>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/10">
+        <Card className="bg-orange-50 border-orange-100">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600">
+            <div className="p-2.5 bg-orange-500 rounded-xl">
               <FileSpreadsheet className="h-5 w-5 text-white" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{importHistory?.length || 0}</p>
-              <p className="text-xs text-muted-foreground">Data Imports</p>
+              <p className="text-2xl font-bold text-orange-700">{importHistory?.length || 0}</p>
+              <p className="text-xs text-orange-600/70 font-medium">Data Imports</p>
             </div>
           </CardContent>
         </Card>

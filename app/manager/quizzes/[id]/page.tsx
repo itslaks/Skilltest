@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import {
   ArrowLeft, Download, Users, Clock, Trophy, CheckCircle2, XCircle,
-  FileQuestion, Pencil, ClipboardList, Brain,
+  FileQuestion, Pencil, ClipboardList, Brain, Upload, FileText,
 } from 'lucide-react'
 import { getQuizLeaderboard } from '@/lib/actions/employee'
 import { getQuizAssignments, getEmployees } from '@/lib/actions/manager'
@@ -57,24 +57,51 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/manager/quizzes"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">{quiz.title}</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{quiz.title}</h1>
           <p className="text-muted-foreground">{quiz.description || quiz.topic}</p>
         </div>
-        <QuizToggleActive quizId={quiz.id} isActive={quiz.is_active} />
-        <Button variant="outline" asChild>
-          <Link href={`/manager/quizzes/${quiz.id}/edit`}>
-            <Pencil className="mr-2 h-4 w-4" /> Edit Quiz
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <QuizToggleActive quizId={quiz.id} isActive={quiz.is_active} />
+          <Button variant="outline" asChild>
+            <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" /> Edit Quiz
+            </Link>
+          </Button>
+        </div>
       </div>
 
+      {/* Upload Questions Banner */}
+      <Card className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-200 dark:border-violet-800">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
+                <Upload className="h-5 w-5 text-violet-600" />
+              </div>
+              <div>
+                <h3 className="font-medium text-violet-800 dark:text-violet-200">Add Questions</h3>
+                <p className="text-sm text-violet-700/80 dark:text-violet-300/80">
+                  Upload PDF, DOCX, or Excel files to generate questions with AI
+                </p>
+              </div>
+            </div>
+            <Button asChild className="bg-violet-600 hover:bg-violet-700">
+              <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+                <FileText className="mr-2 h-4 w-4" />
+                Upload & Generate
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Quiz Info */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <FileQuestion className="h-8 w-8 text-blue-500" />
@@ -173,7 +200,7 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
                   </div>
                   <div className="flex items-center gap-4 text-sm">
                     <span className="font-bold">{entry.score}%</span>
-                    <span className="text-muted-foreground">{entry.correct_answers}/{entry.total_questions}</span>
+                    <span className="text-muted-foreground hidden sm:inline">{entry.correct_answers}/{entry.total_questions}</span>
                     <span className="text-muted-foreground flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatTime(entry.time_taken_seconds)}
@@ -196,8 +223,14 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
 
       {/* Questions Section */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Questions ({questions?.length || 0})</CardTitle>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Questions
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent>
           {questions && questions.length > 0 ? (
@@ -234,6 +267,11 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
             <div className="text-center py-8 text-muted-foreground">
               <FileQuestion className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No questions yet</p>
+              <Button variant="link" asChild className="mt-2">
+                <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+                  Add questions to this quiz
+                </Link>
+              </Button>
             </div>
           )}
         </CardContent>
