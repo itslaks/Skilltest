@@ -1,4 +1,5 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { requireManagerForApi } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 
@@ -7,34 +8,11 @@ export async function GET(
   { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
+    const auth = await requireManagerForApi()
+    if (auth instanceof NextResponse) return auth
+
     const { quizId } = await params
-
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Not authenticated' }), 
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Verify manager role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-      const metaRole = user.user_metadata?.role
-      if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
-        return new NextResponse(
-          JSON.stringify({ error: 'Unauthorized' }), 
-          { status: 403, headers: { 'Content-Type': 'application/json' } }
-        )
-      }
-    }
 
     // Try admin client first, fall back to regular client
     let dataClient = supabase

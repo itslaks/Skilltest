@@ -1,27 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireManagerForApi } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
+  const auth = await requireManagerForApi()
+  if (auth instanceof NextResponse) return auth
+  const { userId } = auth
+
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-
-  // Verify manager role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-    const metaRole = user.user_metadata?.role
-    if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
-      return NextResponse.json({ error: 'Unauthorized: Only managers can use AI chat' }, { status: 403 })
-    }
-  }
 
   try {
     const { message, sessionId, quizId, assessmentData } = await request.json()
@@ -41,7 +27,7 @@ export async function POST(request: NextRequest) {
       const { data: newSession, error: sessionError } = await supabase
         .from('ai_chat_sessions')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           quiz_id: quizId || null,
           title: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
         })
@@ -190,12 +176,11 @@ ${JSON.stringify(data.slice(0, 50).map(d => ({
 
 // GET endpoint to fetch chat history
 export async function GET(request: NextRequest) {
+  const auth = await requireManagerForApi()
+  if (auth instanceof NextResponse) return auth
+  const { userId } = auth
+
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
 
   const { searchParams } = new URL(request.url)
   const sessionId = searchParams.get('sessionId')
@@ -216,7 +201,7 @@ export async function GET(request: NextRequest) {
       const { data: sessions, error } = await supabase
         .from('ai_chat_sessions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('updated_at', { ascending: false })
         .limit(20)
 

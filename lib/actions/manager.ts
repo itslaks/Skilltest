@@ -1,27 +1,14 @@
 'use server'
 
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { requireManager } from '@/lib/rbac'
 import { revalidatePath } from 'next/cache'
 
 // ─── Import employees from parsed Excel data ─────────────────────────
 export async function importEmployees(employees: { email: string; full_name: string; domain: string; employee_id?: string }[]) {
+  const { userId } = await requireManager()
+
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return { error: 'Not authenticated' }
-
-  // Verify manager role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-    const metaRole = user.user_metadata?.role
-    if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
-      return { error: 'Unauthorized: Only managers can import employees' }
-    }
-  }
 
   let successful = 0
   let failed = 0
@@ -60,7 +47,7 @@ export async function importEmployees(employees: { email: string; full_name: str
 
   // Log the import
   await supabase.from('employee_imports').insert({
-    uploaded_by: user.id,
+    uploaded_by: userId,
     file_name: 'excel_import',
     total_records: employees.length,
     successful_imports: successful,
@@ -145,29 +132,15 @@ export async function getImportHistory() {
 
 // ─── Assign a quiz to employees ───────────────────────────────────────
 export async function assignQuizToEmployees(quizId: string, employeeIds: string[]) {
+  const { userId } = await requireManager()
+
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return { error: 'Not authenticated' }
-
-  // Verify manager role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-    const metaRole = user.user_metadata?.role
-    if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
-      return { error: 'Unauthorized: Only managers can assign quizzes' }
-    }
-  }
 
   // Build assignment rows
   const rows = employeeIds.map((empId) => ({
     quiz_id: quizId,
     user_id: empId,
-    assigned_by: user.id,
+    assigned_by: userId,
   }))
 
   // Insert assignments one by one to handle duplicates gracefully

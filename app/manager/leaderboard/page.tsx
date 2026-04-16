@@ -1,4 +1,5 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { requireManager } from '@/lib/rbac'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,33 +12,16 @@ import {
 } from 'lucide-react'
 
 export default async function ManagerLeaderboardPage() {
+  const { userId } = await requireManager()
+
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    redirect('/auth/login')
-  }
-
-  // Verify manager role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  // Fallback to user_metadata.role if profile.role is not set (same logic as layout)
-  const role = profile?.role || user.user_metadata?.role
-  if (!role || (role !== 'manager' && role !== 'admin')) {
-    redirect('/employee')
-  }
-
   const adminClient = createAdminClient()
 
   // Get all quizzes created by manager
   const { data: quizzes } = await supabase
     .from('quizzes')
     .select('id, title, topic, difficulty')
-    .eq('created_by', user.id)
+    .eq('created_by', userId)
     .order('created_at', { ascending: false })
 
   // Get global leaderboard (cumulative across all manager's quizzes)
@@ -53,7 +37,7 @@ export default async function ManagerLeaderboardPage() {
       quizzes!inner(created_by),
       profiles:user_id(full_name, email, employee_id, department, avatar_url)
     `)
-    .eq('quizzes.created_by', user.id)
+    .eq('quizzes.created_by', userId)
     .eq('status', 'completed')
     .order('points_earned', { ascending: false })
 

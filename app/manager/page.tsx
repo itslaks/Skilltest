@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireManager } from '@/lib/rbac'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -21,13 +22,14 @@ import {
 import { getQuizStats } from '@/lib/actions/quiz'
 
 export default async function ManagerDashboard() {
+  const { userId } = await requireManager()
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
   
   const { data: profile } = await supabase
     .from('profiles')
     .select('full_name')
-    .eq('id', user?.id)
+    .eq('id', userId)
     .single()
 
   const { data: stats } = await getQuizStats()
@@ -36,7 +38,7 @@ export default async function ManagerDashboard() {
   const { data: recentQuizzes } = await supabase
     .from('quizzes')
     .select('*, questions(count)')
-    .eq('created_by', user?.id)
+    .eq('created_by', userId)
     .order('created_at', { ascending: false })
     .limit(5)
 
@@ -45,7 +47,7 @@ export default async function ManagerDashboard() {
     .from('questions')
     .select('*, quizzes!inner(title, created_by)')
     .eq('status', 'pending')
-    .eq('quizzes.created_by', user?.id)
+    .eq('quizzes.created_by', userId)
     .order('created_at', { ascending: false })
     .limit(5)
 
@@ -57,7 +59,7 @@ export default async function ManagerDashboard() {
       quizzes!inner(title, created_by),
       profiles:user_id(full_name, email)
     `)
-    .eq('quizzes.created_by', user?.id)
+    .eq('quizzes.created_by', userId)
     .not('completed_at', 'is', null)
     .order('completed_at', { ascending: false })
     .limit(5)

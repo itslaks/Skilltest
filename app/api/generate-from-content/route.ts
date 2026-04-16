@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireManagerForApi } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import type { DifficultyLevel } from '@/lib/types/database'
 
@@ -46,26 +47,10 @@ const DIFFICULTY_PROMPTS: Record<DifficultyLevel, string> = {
  * Generate questions from provided content with strict difficulty enforcement
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireManagerForApi()
+  if (auth instanceof NextResponse) return auth
+
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-  }
-
-  // Verify manager role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-    const metaRole = user.user_metadata?.role
-    if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
-  }
 
   const body = await request.json()
   const { quiz_id, content, difficulty, count, topic } = body as {

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { requireManager } from '@/lib/rbac'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -11,37 +11,22 @@ import {
 import { AssessmentAnalyzer } from '@/components/manager/assessment-analyzer'
 
 export default async function AnalyticsPage() {
+  const { userId } = await requireManager()
+
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    redirect('/auth/login')
-  }
-
-  // Verify manager role
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const role = profile?.role || user.user_metadata?.role
-  if (!role || (role !== 'manager' && role !== 'admin')) {
-    redirect('/employee')
-  }
 
   // Get quizzes for selection
   const { data: quizzes } = await supabase
     .from('quizzes')
     .select('id, title, topic')
-    .eq('created_by', user.id)
+    .eq('created_by', userId)
     .order('created_at', { ascending: false })
 
   // Get import history
   const { data: importHistory } = await supabase
     .from('assessment_imports')
     .select('*')
-    .eq('uploaded_by', user.id)
+    .eq('uploaded_by', userId)
     .order('created_at', { ascending: false })
     .limit(10)
 
@@ -49,7 +34,7 @@ export default async function AnalyticsPage() {
   const { data: overallStats } = await supabase
     .from('quiz_attempts')
     .select('score, correct_answers, total_questions, time_taken_seconds, quizzes!inner(created_by)')
-    .eq('quizzes.created_by', user.id)
+    .eq('quizzes.created_by', userId)
     .eq('status', 'completed')
 
   const totalAttempts = overallStats?.length || 0
