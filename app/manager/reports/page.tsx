@@ -81,35 +81,12 @@ export default async function ManagerReportsPage() {
           <p className="text-muted-foreground mt-1">Overview of quiz performance and employee engagement</p>
         </div>
         <Button variant="default" asChild className="bg-blue-600 hover:bg-blue-700 shadow-md">
-          <a href="/api/reports/download" download>
+          <a href="/api/reports/download">
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             Export All (Excel)
           </a>
         </Button>
       </div>
-
-      {/* Export Info Card */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardContent className="pt-5 pb-5">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-500 rounded-xl shrink-0">
-              <Download className="h-5 w-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-blue-900 mb-1">Export Complete Reports</h3>
-              <p className="text-sm text-blue-700/70 mb-3">
-                Download an Excel file with multiple sheets: Summary, Quiz Performance, All Results, and Employee Stats.
-              </p>
-              <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
-                <a href="/api/reports/download" download>
-                  <FileSpreadsheet className="mr-2 h-4 w-4" />
-                  Download Report
-                </a>
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -249,7 +226,7 @@ export default async function ManagerReportsPage() {
                       </Badge>
                       {hasAttempts ? (
                         <Button size="sm" variant="outline" asChild className="h-8 gap-1.5 text-xs font-semibold border-blue-300 text-blue-700 hover:bg-blue-50">
-                          <a href={`/api/leaderboard/${quiz.id}/download`} download>
+                          <a href={`/api/leaderboard/${quiz.id}/download`}>
                             <Download className="h-3.5 w-3.5" />
                             Download Report
                           </a>

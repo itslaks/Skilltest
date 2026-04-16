@@ -172,7 +172,7 @@ export default async function QuizDetailPage({ params }: { params: Promise<{ id:
           </div>
           {leaderboard && leaderboard.length > 0 && (
             <Button variant="outline" asChild>
-              <a href={`/api/leaderboard/${quizId}/download`} download>
+              <a href={`/api/leaderboard/${quizId}/download`}>
                 <Download className="mr-2 h-4 w-4" />
                 Download Excel
               </a>

@@ -359,7 +359,7 @@ export default async function ManagerLeaderboardPage() {
                 </div>
                 {quizLeaderboards[quiz.id]?.length > 0 && (
                   <Button variant="outline" size="sm" asChild>
-                    <a href={`/api/leaderboard/${quiz.id}/download`} download>
+                    <a href={`/api/leaderboard/${quiz.id}/download`}>
                       <Download className="mr-2 h-4 w-4" />
                       Export
                     </a>
