@@ -17,7 +17,10 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    const metaRole = user.user_metadata?.role
+    if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
   }
 
   try {

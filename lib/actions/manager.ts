@@ -17,7 +17,10 @@ export async function importEmployees(employees: { email: string; full_name: str
     .single()
 
   if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-    return { error: 'Unauthorized: Only managers can import employees' }
+    const metaRole = user.user_metadata?.role
+    if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
+      return { error: 'Unauthorized: Only managers can import employees' }
+    }
   }
 
   let successful = 0
@@ -154,7 +157,10 @@ export async function assignQuizToEmployees(quizId: string, employeeIds: string[
     .single()
 
   if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-    return { error: 'Unauthorized: Only managers can assign quizzes' }
+    const metaRole = user.user_metadata?.role
+    if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
+      return { error: 'Unauthorized: Only managers can assign quizzes' }
+    }
   }
 
   // Build assignment rows

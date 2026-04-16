@@ -25,7 +25,8 @@ export default async function AnalyticsPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
+  const role = profile?.role || user.user_metadata?.role
+  if (!role || (role !== 'manager' && role !== 'admin')) {
     redirect('/employee')
   }
 

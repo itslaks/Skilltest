@@ -22,10 +22,13 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Unauthorized' }), 
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      )
+      const metaRole = user.user_metadata?.role
+      if (!metaRole || (metaRole !== 'manager' && metaRole !== 'admin')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Unauthorized' }), 
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     // Try admin client first, fall back to regular client

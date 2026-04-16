@@ -291,6 +291,7 @@ export function QuizEditor({ quiz: initialQuiz, questions: initialQuestions }: Q
       />
 
       {/* Excel Quiz Import */}
+      <div id="upload">
       <QuizImporter
         quizId={quiz.id}
         quizDifficulty={quiz.difficulty}
@@ -298,6 +299,7 @@ export function QuizEditor({ quiz: initialQuiz, questions: initialQuestions }: Q
           router.refresh()
         }}
       />
+      </div>
 
       {/* Questions */}
       <Card>

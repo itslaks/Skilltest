@@ -142,7 +142,7 @@ export default async function QuizzesPage() {
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+                        <Link href={`/manager/quizzes/${quiz.id}/edit#upload`}>
                           <Upload className="mr-2 h-4 w-4" />
                           Upload Questions
                         </Link>
@@ -180,7 +180,7 @@ export default async function QuizzesPage() {
                   <QuizToggleActive quizId={quiz.id} isActive={quiz.is_active} />
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" asChild>
-                      <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+                      <Link href={`/manager/quizzes/${quiz.id}/edit#upload`}>
                         <Upload className="mr-1 h-3 w-3" />
                         Upload
                       </Link>

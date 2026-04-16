@@ -25,7 +25,9 @@ export default async function ManagerLeaderboardPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || (profile.role !== 'manager' && profile.role !== 'admin')) {
+  // Fallback to user_metadata.role if profile.role is not set (same logic as layout)
+  const role = profile?.role || user.user_metadata?.role
+  if (!role || (role !== 'manager' && role !== 'admin')) {
     redirect('/employee')
   }
 
