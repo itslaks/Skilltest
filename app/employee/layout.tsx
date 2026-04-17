@@ -51,7 +51,6 @@ export default async function EmployeeLayout({
     .single()
 
   return (
-  return (
     <div className="min-h-screen bg-background text-foreground noise-overlay">
       {/* Top nav */}
       <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md shadow-sm">
