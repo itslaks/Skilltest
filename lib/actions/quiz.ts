@@ -33,7 +33,7 @@ export async function createQuiz(input: CreateQuizInput) {
     .insert({
       ...parsed.data,
       created_by: user.id,
-      status: parsed.data.status || 'active', // Ensure quiz is active by default
+      is_active: false, // Start as draft until manager reviews and activates
     })
     .select()
     .single()

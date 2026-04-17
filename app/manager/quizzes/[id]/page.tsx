@@ -77,30 +77,55 @@ export default async function QuizDetailPage({ params, searchParams }: { params:
         </div>
       </div>
 
-      {/* Upload Questions Banner */}
-      <Card className="bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20 border-violet-200 dark:border-violet-800">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/30">
-                <Upload className="h-5 w-5 text-violet-600" />
+      {/* Quiz Status Banner */}
+      {!quiz.is_active && questions && questions.length > 0 ? (
+        <Card className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-amber-200 dark:border-amber-800">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                  <CheckCircle2 className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-amber-800 dark:text-amber-200">Quiz Ready for Review</h3>
+                  <p className="text-sm text-amber-700/80 dark:text-amber-300/80">
+                    {questions.length} questions generated. Review them below, then activate to make available for assignment.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-medium text-violet-800 dark:text-violet-200">Add Questions</h3>
-                <p className="text-sm text-violet-700/80 dark:text-violet-300/80">
-                  Upload PDF, DOCX, or Excel files to generate questions with AI
-                </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="border-amber-200 text-amber-700 hover:bg-amber-50">
+                  Review Questions Below
+                </Button>
               </div>
             </div>
-            <Button asChild className="bg-violet-600 hover:bg-violet-700">
-              <Link href={`/manager/quizzes/${quiz.id}/edit`}>
-                <FileText className="mr-2 h-4 w-4" />
-                Upload & Generate
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : !quiz.is_active ? (
+        <Card className="bg-gradient-to-r from-blue-50 to-violet-50 dark:from-blue-950/20 dark:to-violet-950/20 border-blue-200 dark:border-violet-800">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-violet-900/30">
+                  <Upload className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-blue-800 dark:text-violet-200">Add Questions</h3>
+                  <p className="text-sm text-blue-700/80 dark:text-violet-300/80">
+                    Upload PDF, DOCX, or Excel files to generate questions with AI
+                  </p>
+                </div>
+              </div>
+              <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                <Link href={`/manager/quizzes/${quiz.id}/edit`}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Upload & Generate
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Quiz Info */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
@@ -145,23 +170,50 @@ export default async function QuizDetailPage({ params, searchParams }: { params:
       </div>
 
       {/* Quiz Assignment */}
-      <QuizAssignmentManager
-        quizzes={[{
-          id: quiz.id,
-          title: quiz.title,
-          topic: quiz.topic,
-          difficulty: quiz.difficulty,
-        }]}
-        employees={(allEmployees || []).map((e: any) => ({
-          id: e.id,
-          full_name: e.full_name,
-          email: e.email,
-          employee_id: e.employee_id,
-          department: e.department,
-        }))}
-        assignments={assignmentData || []}
-        autoOpen={autoOpenAssign}
-      />
+      {quiz.is_active ? (
+        <QuizAssignmentManager
+          quizzes={[{
+            id: quiz.id,
+            title: quiz.title,
+            topic: quiz.topic,
+            difficulty: quiz.difficulty,
+          }]}
+          employees={(allEmployees || []).map((e: any) => ({
+            id: e.id,
+            full_name: e.full_name,
+            email: e.email,
+            employee_id: e.employee_id,
+            department: e.department,
+          }))}
+          assignments={assignmentData || []}
+          autoOpen={autoOpenAssign}
+        />
+      ) : (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-muted-foreground">Employee Assignment</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <div className="p-3 rounded-full bg-muted w-fit mx-auto mb-4">
+                <Users className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-medium text-muted-foreground mb-2">Quiz Not Active</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                This quiz is currently in draft mode. {questions && questions.length > 0 ? 'Review the questions above and activate the quiz to make it available for employee assignment.' : 'Add questions and activate the quiz to assign it to employees.'}
+              </p>
+              {questions && questions.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-xs text-muted-foreground mb-3">Ready to assign? Activate this quiz using the toggle above.</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Leaderboard Section */}
       <Card>

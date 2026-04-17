@@ -186,7 +186,8 @@ export default function NewQuizPage() {
           setIsGenerating(false)
         }
       }
-      router.push(`/manager/quizzes/${quizId}?assign=1`)
+      // Redirect to quiz detail page for review
+      router.push(`/manager/quizzes/${quizId}`)
     })
   }
 

@@ -93,11 +93,19 @@ export default async function QuizzesPage() {
                     <Pencil className="h-3 w-3 mr-1" />Edit
                   </Link>
                 </Button>
-                <Button size="sm" className="h-8 rounded-xl text-xs bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 border-0" asChild>
-                  <Link href={`/manager/quizzes/${quiz.id}?assign=1`}>
-                    <Users className="h-3 w-3 mr-1" />Assign
-                  </Link>
-                </Button>
+                {quiz.is_active ? (
+                  <Button size="sm" className="h-8 rounded-xl text-xs bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 border-0" asChild>
+                    <Link href={`/manager/quizzes/${quiz.id}?assign=1`}>
+                      <Users className="h-3 w-3 mr-1" />Assign
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" className="h-8 rounded-xl text-xs" asChild>
+                    <Link href={`/manager/quizzes/${quiz.id}`}>
+                      <CheckCircle2 className="h-3 w-3 mr-1" />Review
+                    </Link>
+                  </Button>
+                )}
                 {(quiz.quiz_attempts?.[0]?.count || 0) > 0 && (
                   <Button
                     variant="outline"
