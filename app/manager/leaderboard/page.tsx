@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RealtimeManagerLeaderboard } from '@/components/manager/realtime-manager-leaderboard'
+import { QuizCompletionDetails } from '@/components/manager/quiz-completion-details'
 import Link from 'next/link'
 import { 
   Trophy, Medal, Crown, Users, TrendingUp, Clock, 
@@ -145,6 +146,25 @@ export default async function ManagerLeaderboardPage() {
     }
   }
 
+  // Get recent completions with detailed information
+  const { data: recentCompletions } = await adminClient
+    .from('quiz_attempts')
+    .select(`
+      id,
+      score,
+      correct_answers,
+      total_questions,
+      time_taken_seconds,
+      points_earned,
+      completed_at,
+      quizzes!inner(title, topic, difficulty, created_by),
+      profiles:user_id(full_name, email, employee_id, department)
+    `)
+    .eq('quizzes.created_by', userId)
+    .eq('status', 'completed')
+    .order('completed_at', { ascending: false })
+    .limit(10)
+
   const formatTime = (s: number) => {
     if (!s) return '-'
     const mins = Math.floor(s / 60)
@@ -227,12 +247,64 @@ export default async function ManagerLeaderboardPage() {
         </Card>
       </div>
 
+      {/* Recent Activity */}
+      {recentCompletions && recentCompletions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-green-500" />
+              Recent Quiz Completions
+            </CardTitle>
+            <CardDescription>Latest quiz attempts by your employees</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {recentCompletions.slice(0, 5).map((completion: any) => (
+                <div key={completion.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-700 font-bold text-sm">
+                      {completion.score}%
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{completion.profiles?.full_name || 'Unknown'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {completion.quizzes?.title} • {completion.profiles?.department || 'No Dept'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="text-center">
+                      <p className="font-semibold">{completion.correct_answers}/{completion.total_questions}</p>
+                      <p className="text-xs text-muted-foreground">Correct</p>
+                    </div>
+                    <div className="text-center hidden sm:block">
+                      <p className="font-semibold">{formatTime(completion.time_taken_seconds)}</p>
+                      <p className="text-xs text-muted-foreground">Time</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold">{completion.points_earned} pts</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(completion.completed_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Leaderboard Tabs */}
       <Tabs defaultValue="cumulative" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-2">
           <TabsTrigger value="cumulative" className="flex items-center gap-1">
             <BarChart3 className="h-4 w-4" />
             Cumulative
+          </TabsTrigger>
+          <TabsTrigger value="completions" className="flex items-center gap-1">
+            <Clock className="h-4 w-4" />
+            Recent Activity
           </TabsTrigger>
           {quizzes?.map((quiz: any) => (
             <TabsTrigger key={quiz.id} value={quiz.id} className="flex items-center gap-1">
@@ -246,9 +318,60 @@ export default async function ManagerLeaderboardPage() {
 
         {/* Cumulative Leaderboard */}
         <TabsContent value="cumulative">
-          <RealtimeManagerLeaderboard 
-            initialData={cumulativeLeaderboard}
-            managerId={userId}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-blue-500" />
+                  Cumulative Performance
+                </CardTitle>
+                <CardDescription>
+                  Overall employee performance across all quizzes
+                </CardDescription>
+              </div>
+              {cumulativeLeaderboard.length > 0 && (
+                <Button variant="outline" size="sm" asChild>
+                  <a href="/api/leaderboard/cumulative/download">
+                    <Download className="mr-2 h-4 w-4" />
+                    Export
+                  </a>
+                </Button>
+              )}
+            </CardHeader>
+            <CardContent>
+              <RealtimeManagerLeaderboard 
+                initialData={cumulativeLeaderboard}
+                managerId={userId}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Recent Completions */}
+        <TabsContent value="completions">
+          <QuizCompletionDetails 
+            completions={recentCompletions?.map((c: any) => ({
+              id: c.id,
+              user_id: c.user_id,
+              score: c.score,
+              correct_answers: c.correct_answers,
+              total_questions: c.total_questions,
+              time_taken_seconds: c.time_taken_seconds,
+              points_earned: c.points_earned,
+              completed_at: c.completed_at,
+              quiz: {
+                title: c.quizzes.title,
+                topic: c.quizzes.topic,
+                difficulty: c.quizzes.difficulty
+              },
+              profile: {
+                full_name: c.profiles.full_name,
+                email: c.profiles.email,
+                employee_id: c.profiles.employee_id,
+                department: c.profiles.department
+              }
+            })) || []}
+            onExport={() => window.open('/api/leaderboard/cumulative/download', '_blank')}
           />
         </TabsContent>
 

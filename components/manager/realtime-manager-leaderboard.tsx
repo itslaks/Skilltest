@@ -19,6 +19,9 @@ interface ManagerLeaderboardEntry {
   total_questions: number
   total_time: number
   rank: number
+  earliest_completion?: string
+  latest_completion?: string
+  first_quiz_completed?: string
 }
 
 interface RealtimeManagerLeaderboardProps {
@@ -52,12 +55,13 @@ export function RealtimeManagerLeaderboard({
             time_taken_seconds,
             points_earned,
             completed_at,
-            quizzes!inner(created_by),
+            quizzes!inner(created_by, title),
             profiles:user_id(full_name, email, employee_id, department)
           `)
           .eq('quizzes.created_by', managerId)
           .eq('status', 'completed')
           .order('points_earned', { ascending: false })
+          .order('completed_at', { ascending: true })
 
         if (error) {
           console.error('Manager leaderboard refresh error:', error)
@@ -70,6 +74,7 @@ export function RealtimeManagerLeaderboard({
         globalLeaderboard?.forEach((attempt: any) => {
           const userId = attempt.user_id
           const existing = userAggregates.get(userId)
+          const completedAt = attempt.completed_at
           
           if (existing) {
             existing.total_points += attempt.points_earned || 0
@@ -80,9 +85,18 @@ export function RealtimeManagerLeaderboard({
             existing.avg_score = existing.total_questions > 0 
               ? Math.round((existing.total_correct / existing.total_questions) * 100) 
               : 0
+            
             // Track earliest completion for tiebreaking
-            if (new Date(attempt.completed_at) < new Date(existing.earliest_completion)) {
-              existing.earliest_completion = attempt.completed_at
+            if (completedAt && (!existing.earliest_completion || new Date(completedAt) < new Date(existing.earliest_completion))) {
+              existing.earliest_completion = completedAt
+            }
+            // Track latest completion for showing recent activity
+            if (completedAt && (!existing.latest_completion || new Date(completedAt) > new Date(existing.latest_completion))) {
+              existing.latest_completion = completedAt
+            }
+            // Track first quiz completion
+            if (completedAt && !existing.first_quiz_completed) {
+              existing.first_quiz_completed = completedAt
             }
           } else {
             userAggregates.set(userId, {
@@ -97,7 +111,9 @@ export function RealtimeManagerLeaderboard({
               total_questions: attempt.total_questions || 0,
               total_time: attempt.time_taken_seconds || 0,
               avg_score: attempt.score || 0,
-              earliest_completion: attempt.completed_at,
+              earliest_completion: completedAt,
+              latest_completion: completedAt,
+              first_quiz_completed: completedAt,
             })
           }
         })
@@ -270,6 +286,22 @@ export function RealtimeManagerLeaderboard({
                     <div className="text-center hidden sm:block">
                       <p className="font-semibold">{formatTime(entry.total_time)}</p>
                       <p className="text-xs text-muted-foreground">Total Time</p>
+                    </div>
+                    <div className="text-center hidden md:block">
+                      <p className="font-semibold text-xs">
+                        {entry.latest_completion 
+                          ? new Date(entry.latest_completion).toLocaleDateString() 
+                          : '-'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Last Quiz</p>
+                    </div>
+                    <div className="text-center hidden lg:block">
+                      <p className="font-semibold text-xs">
+                        {entry.first_quiz_completed 
+                          ? new Date(entry.first_quiz_completed).toLocaleDateString() 
+                          : '-'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">First Quiz</p>
                     </div>
                   </div>
                 </div>
