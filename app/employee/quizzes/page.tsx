@@ -1,12 +1,10 @@
 import { getAvailableQuizzes } from '@/lib/actions/employee'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { Clock, FileQuestion, CheckCircle2, ArrowRight, Trophy } from 'lucide-react'
+import { Clock, FileQuestion, CheckCircle2, ArrowRight, Play, RotateCcw } from 'lucide-react'
 
 const difficultyColors: Record<string, string> = {
-  easy: 'bg-green-100 text-green-700',
+  easy: 'bg-emerald-100 text-emerald-700',
   medium: 'bg-blue-100 text-blue-700',
   hard: 'bg-amber-100 text-amber-700',
   advanced: 'bg-orange-100 text-orange-700',
@@ -21,65 +19,55 @@ export default async function EmployeeQuizzesPage() {
   const completed = quizzes?.filter((q: any) => q.attemptStatus === 'completed') || []
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">My Quizzes</h1>
-          <p className="text-muted-foreground mt-1">Browse assessments, track progress, earn points</p>
+          <h1 className="text-2xl font-bold tracking-tight">My Quizzes</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Browse assessments, track progress, earn points</p>
         </div>
-        <div className="flex gap-2 text-sm text-muted-foreground bg-muted/60 px-4 py-2 rounded-xl">
-          <span className="font-semibold text-green-600">{available.length} available</span>
-          {inProgress.length > 0 && <span>• <span className="font-semibold text-yellow-600">{inProgress.length} in progress</span></span>}
-          {completed.length > 0 && <span>• <span className="font-semibold text-blue-600">{completed.length} done</span></span>}
+        <div className="flex gap-2 text-xs font-medium bg-white border border-border/60 px-4 py-2 rounded-xl shadow-sm">
+          <span className="text-emerald-600">{available.length} available</span>
+          {inProgress.length > 0 && <><span className="text-muted-foreground">·</span><span className="text-amber-600">{inProgress.length} in progress</span></>}
+          {completed.length > 0 && <><span className="text-muted-foreground">·</span><span className="text-blue-600">{completed.length} done</span></>}
         </div>
       </div>
 
       {/* In Progress */}
       {inProgress.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-            In Progress
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />In Progress
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {inProgress.map((quiz: any) => (
-              <QuizCard key={quiz.id} quiz={quiz} status="in_progress" />
-            ))}
+            {inProgress.map((quiz: any) => <QuizCard key={quiz.id} quiz={quiz} status="in_progress" />)}
           </div>
         </section>
       )}
 
       {/* Available */}
       <section>
-        <h2 className="text-xl font-semibold mb-4">Available Quizzes</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3">Available</h2>
         {available.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {available.map((quiz: any) => (
-              <QuizCard key={quiz.id} quiz={quiz} status="available" />
-            ))}
+            {available.map((quiz: any) => <QuizCard key={quiz.id} quiz={quiz} status="available" />)}
           </div>
         ) : (
-          <Card className="py-12">
-            <CardContent className="text-center">
-              <FileQuestion className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-xl font-semibold mb-2">No quizzes available</h3>
-              <p className="text-muted-foreground">Check back later for new assessments.</p>
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl bg-white border border-border/60 shadow-sm py-14 text-center">
+            <FileQuestion className="h-14 w-14 mx-auto mb-3 text-muted-foreground opacity-30" />
+            <h3 className="font-semibold mb-1">No quizzes available</h3>
+            <p className="text-sm text-muted-foreground">Check back later for new assessments.</p>
+          </div>
         )}
       </section>
 
       {/* Completed */}
       {completed.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
-            Completed
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />Completed
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {completed.map((quiz: any) => (
-              <QuizCard key={quiz.id} quiz={quiz} status="completed" />
-            ))}
+            {completed.map((quiz: any) => <QuizCard key={quiz.id} quiz={quiz} status="completed" />)}
           </div>
         </section>
       )}
@@ -88,77 +76,49 @@ export default async function EmployeeQuizzesPage() {
 }
 
 function QuizCard({ quiz, status }: { quiz: any; status: string }) {
-  const statusConfig = {
-    available: { border: 'border-border hover:border-blue-300 hover:shadow-blue-100', badge: null },
-    in_progress: { border: 'border-yellow-300 bg-yellow-50/30 shadow-yellow-100', badge: 'In Progress' },
-    completed: { border: 'border-green-200 bg-green-50/20', badge: null },
-  }[status] || { border: '', badge: null }
-
   return (
-    <Card className={`relative overflow-hidden transition-all hover:shadow-lg ${statusConfig.border}`}>
-      {statusConfig.badge && (
-        <div className="absolute top-3 left-3 z-10">
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-400 text-yellow-900">
-            {statusConfig.badge}
-          </span>
+    <div className={`relative flex flex-col rounded-2xl bg-white border shadow-sm overflow-hidden transition-all hover:shadow-md ${
+      status === 'in_progress' ? 'border-amber-200' : status === 'completed' ? 'border-emerald-100' : 'border-border/60 hover:border-primary/30'
+    }`}>
+      {/* Status badge */}
+      {status === 'in_progress' && (
+        <div className="absolute top-3 left-3">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-amber-900 uppercase tracking-wide">In Progress</span>
         </div>
       )}
-      {status === 'completed' && (
-        <div className="absolute top-3 right-3 z-10">
-          <span className={`text-base font-bold px-2.5 py-1 rounded-full ${
-            (quiz.attemptScore || 0) >= 70 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-amber-100 text-amber-700'
-          }`}>
+      {status === 'completed' && quiz.attemptScore !== undefined && (
+        <div className="absolute top-3 right-3">
+          <span className={`text-sm font-bold px-2.5 py-1 rounded-lg ${(quiz.attemptScore || 0) >= 70 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
             {quiz.attemptScore}%
           </span>
         </div>
       )}
-      <CardContent className="p-5 space-y-4">
-        <div className={status === 'in_progress' ? 'mt-5' : ''}>
-          <h3 className="font-bold text-base truncate pr-16">{quiz.title}</h3>
-          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{quiz.description || quiz.topic}</p>
+
+      <div className={`p-5 flex flex-col flex-1 ${status === 'in_progress' ? 'pt-9' : ''}`}>
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${difficultyColors[quiz.difficulty] || 'bg-gray-100 text-gray-700'}`}>{quiz.difficulty}</span>
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{quiz.topic}</span>
+        </div>
+        <h3 className="font-bold text-sm mb-1 pr-14 line-clamp-2">{quiz.title}</h3>
+        {quiz.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{quiz.description}</p>}
+
+        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-auto pt-3 border-t border-border/40">
+          <span className="flex items-center gap-1"><FileQuestion className="h-3 w-3 text-violet-400" />{quiz.questions?.[0]?.count || quiz.question_count} Q</span>
+          <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-amber-400" />{quiz.time_limit_minutes}m</span>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${difficultyColors[quiz.difficulty] || 'bg-gray-100 text-gray-700'}`}>
-            {quiz.difficulty}
-          </span>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-            {quiz.topic}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4 text-xs text-muted-foreground border-t pt-3">
-          <span className="flex items-center gap-1.5">
-            <FileQuestion className="h-3.5 w-3.5 text-blue-500" />
-            <span className="font-medium">{quiz.questions?.[0]?.count || quiz.question_count}</span> questions
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-orange-500" />
-            <span className="font-medium">{quiz.time_limit_minutes}</span> min
-          </span>
-        </div>
-
-        <div className="flex gap-2 pt-1">
-          <Button 
-            className={`flex-1 font-semibold ${status === 'available' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-            variant={status === 'completed' ? 'outline' : 'default'} 
+        <div className="flex gap-2 mt-3">
+          <Button
+            className={`flex-1 h-9 rounded-xl text-xs font-semibold border-0 ${status === 'completed' ? '' : 'bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700'}`}
+            variant={status === 'completed' ? 'outline' : 'default'}
             asChild
           >
             <Link href={status === 'completed' ? `/employee/quizzes/${quiz.id}/results` : `/employee/quizzes/${quiz.id}`}>
-              {status === 'completed' ? '📋 View Results' : status === 'in_progress' ? '▶ Continue' : '🚀 Start Quiz'}
+              {status === 'completed' ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Results</> : status === 'in_progress' ? <><Play className="h-3.5 w-3.5 mr-1.5" />Continue</> : <><Play className="h-3.5 w-3.5 mr-1.5" />Start Quiz</>}
             </Link>
           </Button>
-          {status === 'completed' && (
-            <Button variant="outline" size="icon" asChild title="View Leaderboard" className="border-yellow-200 hover:bg-yellow-50">
-              <Link href={`/employee/quizzes/${quiz.id}/leaderboard`}>
-                <Trophy className="h-4 w-4 text-yellow-600" />
-              </Link>
-            </Button>
-          )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

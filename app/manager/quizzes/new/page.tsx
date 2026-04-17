@@ -72,6 +72,8 @@ export default function NewQuizPage() {
   const [activeSection, setActiveSection] = useState<'basics' | 'settings' | 'questions'>('basics')
 
   // Basics
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium')
   const [questionCount, setQuestionCount] = useState(10)
   const [topic, setTopic] = useState('')
@@ -86,6 +88,7 @@ export default function NewQuizPage() {
   const [allowRetakes, setAllowRetakes] = useState(false)
   const [maxRetakes, setMaxRetakes] = useState(1)
   const [showExplanations, setShowExplanations] = useState(true)
+  const [feedbackFormUrl, setFeedbackFormUrl] = useState('')
 
   // Questions
   const [questionSource, setQuestionSource] = useState<'ai' | 'upload' | 'both'>('ai')
@@ -97,7 +100,7 @@ export default function NewQuizPage() {
   const distribution = useMemo(() => getDistribution(difficulty, questionCount), [difficulty, questionCount])
 
   const sectionComplete = {
-    basics: !!topic,
+    basics: !!topic && !!title,
     settings: true,
     questions: questionSource === 'ai' || parsedQuestions.length > 0,
   }
@@ -134,17 +137,16 @@ export default function NewQuizPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    const form = new FormData(e.currentTarget)
 
     const data: any = {
-      title: form.get('title') as string,
-      description: form.get('description') as string || undefined,
+      title,
+      description: description || undefined,
       topic,
       difficulty,
       time_limit_minutes: timeLimit,
       question_count: questionCount,
       passing_score: passingScore,
-      feedback_form_url: form.get('feedback_form_url') as string || undefined,
+      feedback_form_url: feedbackFormUrl || undefined,
     }
 
     startTransition(async () => {
@@ -253,13 +255,13 @@ export default function NewQuizPage() {
               <div className="p-6 space-y-5">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Quiz Title <span className="text-red-500">*</span></label>
-                  <Input name="title" placeholder="e.g., JavaScript Fundamentals Q1 2026" required className="h-11 rounded-xl" />
+                  <Input name="title" placeholder="e.g., JavaScript Fundamentals Q1 2026" required value={title} onChange={e => setTitle(e.target.value)} className="h-11 rounded-xl" />
                   <p className="text-xs text-muted-foreground">This will be visible to employees</p>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Description <span className="text-muted-foreground font-normal">(optional)</span></label>
-                  <Textarea name="description" placeholder="Give employees a brief overview of what this quiz covers..." rows={3} className="rounded-xl resize-none" />
+                  <Textarea name="description" placeholder="Give employees a brief overview of what this quiz covers..." rows={3} value={description} onChange={e => setDescription(e.target.value)} className="rounded-xl resize-none" />
                 </div>
 
                 <div className="space-y-1.5">
@@ -434,7 +436,7 @@ export default function NewQuizPage() {
                     <CheckCircle2 className="h-4 w-4 text-blue-500" />
                     Feedback Form URL <span className="text-muted-foreground font-normal">(optional)</span>
                   </label>
-                  <Input name="feedback_form_url" type="url" placeholder="https://forms.google.com/..." className="h-11 rounded-xl" />
+                  <Input name="feedback_form_url" type="url" placeholder="https://forms.google.com/..." value={feedbackFormUrl} onChange={e => setFeedbackFormUrl(e.target.value)} className="h-11 rounded-xl" />
                   <p className="text-xs text-muted-foreground">Displayed to employees after quiz completion</p>
                 </div>
               </div>
@@ -598,7 +600,7 @@ export default function NewQuizPage() {
               </button>
               <Button
                 type="submit"
-                disabled={isPending || isGenerating || !topic}
+                disabled={isPending || isGenerating || !topic || !title}
                 className="flex-1 h-14 rounded-2xl text-[15px] font-bold shadow-lg"
               >
                 {isPending || isGenerating ? (
