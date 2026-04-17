@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { Profile } from '@/lib/types/database'
@@ -15,8 +14,9 @@ import {
   ChevronRight,
   Trophy,
   Brain,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { signOut } from '@/lib/actions/auth'
 import { useState } from 'react'
@@ -26,12 +26,22 @@ interface ManagerSidebarProps {
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/manager', icon: LayoutDashboard },
-  { name: 'Quizzes', href: '/manager/quizzes', icon: FileQuestion },
-  { name: 'Employees', href: '/manager/employees', icon: Users },
-  { name: 'Leaderboard', href: '/manager/leaderboard', icon: Trophy },
-  { name: 'Analytics & AI', href: '/manager/analytics', icon: Brain },
-  { name: 'Reports', href: '/manager/reports', icon: BarChart3 },
+  {
+    section: 'Main',
+    items: [
+      { name: 'Dashboard', href: '/manager', icon: LayoutDashboard, color: 'text-sky-400', bg: 'bg-sky-400/10', activeBg: 'bg-sky-500', description: 'Overview & stats' },
+      { name: 'Quizzes', href: '/manager/quizzes', icon: FileQuestion, color: 'text-violet-400', bg: 'bg-violet-400/10', activeBg: 'bg-violet-500', description: 'Manage assessments' },
+      { name: 'Employees', href: '/manager/employees', icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-400/10', activeBg: 'bg-emerald-500', description: 'Team management' },
+    ]
+  },
+  {
+    section: 'Insights',
+    items: [
+      { name: 'Leaderboard', href: '/manager/leaderboard', icon: Trophy, color: 'text-amber-400', bg: 'bg-amber-400/10', activeBg: 'bg-amber-500', description: 'Rankings & scores' },
+      { name: 'Analytics & AI', href: '/manager/analytics', icon: Brain, color: 'text-pink-400', bg: 'bg-pink-400/10', activeBg: 'bg-pink-500', description: 'AI-powered insights' },
+      { name: 'Reports', href: '/manager/reports', icon: BarChart3, color: 'text-orange-400', bg: 'bg-orange-400/10', activeBg: 'bg-orange-500', description: 'Download reports' },
+    ]
+  },
 ]
 
 export function ManagerSidebar({ profile }: ManagerSidebarProps) {
@@ -39,119 +49,124 @@ export function ManagerSidebar({ profile }: ManagerSidebarProps) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
 
-  const handleNavigation = (href: string) => {
-    router.push(href)
-  }
-
   return (
-    <>
-      {/* Mobile overlay */}
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm lg:hidden z-40 hidden" />
-      
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 shadow-xl border-r border-border/50',
-          'bg-black text-white noise-overlay',
-          collapsed ? 'w-16' : 'w-64'
-        )}
-      >
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-3 px-4 border-b border-white/10 relative z-10">
-          <button
-            onClick={() => handleNavigation('/manager')}
-            className="flex items-center gap-3 hover-lift"
-          >
-            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-lg">
-              <Sparkles className="w-5 h-5 text-black" />
-            </div>
-            {!collapsed && (
-              <div>
-                <span className="font-bold text-lg text-white tracking-tight">SkillTest</span>
-                <p className="text-[10px] text-white/50 -mt-0.5">Manager Portal</p>
-              </div>
-            )}
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || 
-              (item.href !== '/manager' && pathname.startsWith(item.href))
-            return (
-              <button
-                key={item.name}
-                onClick={() => handleNavigation(item.href)}
-                title={collapsed ? item.name : undefined}
-                className={cn(
-                  'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left relative z-10',
-                  isActive
-                    ? 'bg-white text-black shadow-sm font-semibold'
-                    : 'text-white/60 hover:bg-white/10 hover:text-white hover-lift'
-                )}
-              >
-                <item.icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-black' : '')} />
-                {!collapsed && <span>{item.name}</span>}
-                {!collapsed && isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-black/50" />
-                )}
-              </button>
-            )
-          })}
-        </nav>
-
-        {/* Collapse toggle */}
-        <div className="px-3 py-2 border-t border-white/10">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-center text-white/50 hover:text-white hover:bg-white/10"
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-
-        {/* User section */}
-        <div className="p-3 border-t border-white/10">
-          <div className={cn(
-            'flex items-center gap-3 p-2 rounded-lg bg-white/5',
-            collapsed && 'justify-center'
-          )}>
-            <Avatar className="h-9 w-9 shrink-0 ring-2 ring-white/20 hover:ring-white transition-all">
-              <AvatarImage src={profile?.avatar_url || undefined} />
-              <AvatarFallback className="bg-white text-black text-sm font-bold">
-                {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'M'}
-              </AvatarFallback>
-            </Avatar>
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{profile?.full_name || 'Manager'}</p>
-                <p className="text-xs text-white/50 truncate">{profile?.email}</p>
-              </div>
-            )}
+    <aside
+      className={cn(
+        'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ease-in-out',
+        'bg-[#0f0f10] border-r border-white/[0.06]',
+        collapsed ? 'w-[68px]' : 'w-64'
+      )}
+    >
+      {/* Logo */}
+      <div className={cn('flex h-16 items-center border-b border-white/[0.06] px-4', collapsed ? 'justify-center' : 'gap-3')}>
+        <button
+          onClick={() => router.push('/manager')}
+          className="flex items-center gap-3 group"
+        >
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/25 group-hover:shadow-blue-500/40 transition-all">
+            <Sparkles className="w-4.5 h-4.5 text-white" />
           </div>
-          <form action={signOut} className="mt-2">
-            <Button 
-              type="submit"
-              variant="ghost" 
-              size="sm" 
-              className={cn(
-                'text-white/50 hover:text-red-300 hover:bg-red-500/10 transition-colors',
-                collapsed ? 'w-full justify-center' : 'w-full justify-start'
-              )}
-            >
-              <LogOut className="h-4 w-4" />
-              {!collapsed && <span className="ml-2">Sign Out</span>}
-            </Button>
-          </form>
+          {!collapsed && (
+            <div className="leading-none">
+              <span className="font-bold text-[15px] text-white tracking-tight">SkillTest</span>
+              <p className="text-[10px] text-white/30 mt-0.5 font-medium tracking-wide uppercase">Manager</p>
+            </div>
+          )}
+        </button>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-4 px-2.5 space-y-5">
+        {navigation.map((group) => (
+          <div key={group.section}>
+            {!collapsed && (
+              <p className="text-[10px] font-semibold text-white/25 uppercase tracking-widest px-2 mb-1.5">{group.section}</p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive = pathname === item.href ||
+                  (item.href !== '/manager' && pathname.startsWith(item.href))
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => router.push(item.href)}
+                    title={collapsed ? item.name : undefined}
+                    className={cn(
+                      'w-full flex items-center gap-3 rounded-xl text-sm font-medium transition-all duration-150 group relative',
+                      collapsed ? 'justify-center p-2.5' : 'px-3 py-2.5',
+                      isActive
+                        ? 'bg-white/10 text-white'
+                        : 'text-white/40 hover:text-white/80 hover:bg-white/[0.05]'
+                    )}
+                  >
+                    <div className={cn(
+                      'flex items-center justify-center rounded-lg shrink-0 transition-all',
+                      collapsed ? 'w-8 h-8' : 'w-7 h-7',
+                      isActive ? item.bg : 'bg-white/[0.04] group-hover:bg-white/[0.08]'
+                    )}>
+                      <item.icon className={cn('h-4 w-4 shrink-0', isActive ? item.color : 'text-white/40 group-hover:text-white/70')} />
+                    </div>
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left">{item.name}</span>
+                        {isActive && <div className={cn('w-1.5 h-1.5 rounded-full shrink-0', item.activeBg)} />}
+                      </>
+                    )}
+                    {collapsed && isActive && (
+                      <div className={cn('absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full', item.activeBg)} />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      {/* Bottom section */}
+      <div className="border-t border-white/[0.06] p-2.5 space-y-1">
+        {/* Collapse toggle */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/30 hover:text-white/70 hover:bg-white/[0.05] transition-all text-sm',
+            collapsed && 'justify-center px-2.5'
+          )}
+        >
+          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          {!collapsed && <span>Collapse</span>}
+        </button>
+
+        {/* User */}
+        <div className={cn('flex items-center gap-3 p-2 rounded-xl hover:bg-white/[0.05] transition-all cursor-default', collapsed && 'justify-center')}>
+          <Avatar className="h-8 w-8 shrink-0 ring-1 ring-white/20">
+            <AvatarImage src={(profile as any)?.avatar_url || undefined} />
+            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-violet-600 text-white text-xs font-bold">
+              {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'M'}
+            </AvatarFallback>
+          </Avatar>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-white/90 truncate">{profile?.full_name || 'Manager'}</p>
+              <p className="text-[11px] text-white/30 truncate">{profile?.email}</p>
+            </div>
+          )}
         </div>
-      </aside>
-    </>
+
+        {/* Sign out */}
+        <form action={signOut}>
+          <button
+            type="submit"
+            className={cn(
+              'w-full flex items-center gap-3 px-3 py-2 rounded-xl text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all text-sm group',
+              collapsed && 'justify-center px-2.5'
+            )}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            {!collapsed && <span>Sign Out</span>}
+          </button>
+        </form>
+      </div>
+    </aside>
   )
 }
