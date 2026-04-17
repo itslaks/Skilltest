@@ -4,130 +4,154 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { FieldGroup, Field, FieldLabel, FieldMessage } from '@/components/ui/field'
 import { Spinner } from '@/components/ui/spinner'
 import { signUp } from '@/lib/actions/auth'
-import { Mail, Lock, User, Building, Sparkles } from 'lucide-react'
+import { Mail, Lock, User, Building, Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Zap } from 'lucide-react'
 
 export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [showPassword, setShowPassword] = useState(false)
 
   async function handleSignUp(formData: FormData) {
     setError(null)
-    // Always sign up as employee – manager accounts are created by admins
     formData.append('role', 'employee')
     startTransition(async () => {
       const result = await signUp(formData)
-      if (result?.error) {
-        setError(result.error)
-      }
+      if (result?.error) setError(result.error)
     })
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold">SkillTest</span>
-          </Link>
-          <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
-          <p className="text-muted-foreground mt-2">Get started with your employee assessments</p>
+    <div className="min-h-screen flex bg-background">
+      {/* Left branding panel */}
+      <div className="hidden lg:flex lg:w-[42%] bg-[#0f0f10] relative overflow-hidden flex-col justify-between p-12">
+        <div className="absolute top-0 left-0 w-72 h-72 bg-blue-600/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-72 h-72 bg-violet-600/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+
+        <Link href="/" className="relative z-10 flex items-center gap-3 w-fit">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-lg">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-2xl font-bold text-white tracking-tight">SkillTest</span>
+        </Link>
+
+        <div className="relative z-10 space-y-8">
+          <div>
+            <h2 className="text-4xl font-bold text-white leading-tight mb-4">Your skills,<br />measured right.</h2>
+            <p className="text-white/50 text-lg leading-relaxed">Join thousands of employees taking smarter assessments powered by AI.</p>
+          </div>
+          <div className="space-y-4">
+            {[
+              { icon: Zap, label: 'AI-powered assessments', desc: 'Smart questions tailored to your role' },
+              { icon: ShieldCheck, label: 'Secure & private', desc: 'Your data is always protected' },
+              { icon: CheckCircle2, label: 'Instant results', desc: 'Know your score right away' },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-4">
+                <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                  <item.icon className="h-4 w-4 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{item.label}</p>
+                  <p className="text-xs text-white/40">{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <Card>
-          <form action={handleSignUp}>
-            <CardHeader>
-              <CardTitle>Employee Registration</CardTitle>
-              <CardDescription>Enter your details to create your assessment account</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {error && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-                  {error}
-                </div>
-              )}
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="fullName">Full Name</FieldLabel>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="fullName"
-                      name="fullName"
-                      type="text"
-                      placeholder="Your full name"
-                      required
-                      className="pl-10"
-                    />
-                  </div>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="email">Work Email</FieldLabel>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      placeholder="yourname@company.com"
-                      required
-                      className="pl-10"
-                    />
-                  </div>
-                  <FieldMessage>Use your official work email address</FieldMessage>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="password"
-                      name="password"
-                      type="password"
-                      placeholder="Create a secure password"
-                      required
-                      minLength={6}
-                      className="pl-10"
-                    />
-                  </div>
-                  <FieldMessage>Minimum 6 characters with letters and numbers</FieldMessage>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="department">Department <span className="text-muted-foreground font-normal">(Optional)</span></FieldLabel>
-                  <div className="relative">
-                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="department"
-                      name="department"
-                      type="text"
-                      placeholder="e.g., Engineering, Marketing, HR"
-                      className="pl-10"
-                    />
-                  </div>
-                </Field>
-              </FieldGroup>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-4">
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? <Spinner className="mr-2" /> : null}
-                Create Account
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+        <div className="relative z-10 border border-white/10 rounded-2xl p-5 bg-white/5">
+          <p className="text-white/70 text-sm leading-relaxed italic">&ldquo;SkillTest made our team assessments 3&times; faster and the insights are incredibly actionable.&rdquo;</p>
+          <p className="text-white/40 text-xs mt-3 font-medium">&mdash; HR Manager, Fortune 500</p>
+        </div>
+      </div>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Already have an account?{' '}
-          <Link href="/auth/login" className="text-primary hover:underline font-medium">
-            Sign in
+      {/* Right form panel */}
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12 relative overflow-y-auto">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-primary/5 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 w-full max-w-md py-8">
+          {/* Mobile logo */}
+          <Link href="/" className="lg:hidden inline-flex items-center gap-2.5 mb-8">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-md">
+              <Sparkles className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-xl font-bold tracking-tight">SkillTest</span>
           </Link>
-        </p>
+
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight">Create your account</h1>
+            <p className="text-muted-foreground mt-1.5">Get started with your employee assessments</p>
+          </div>
+
+          <form action={handleSignUp} className="space-y-4">
+            {error && (
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+                <span className="shrink-0">⚠️</span>{error}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label htmlFor="fullName" className="text-sm font-semibold">Full Name</label>
+              <div className="relative">
+                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                <Input id="fullName" name="fullName" type="text" placeholder="Your full name" required className="pl-11 h-11 rounded-xl border-border/70 bg-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-sm font-semibold">Work Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                <Input id="email" name="email" type="email" placeholder="yourname@company.com" required className="pl-11 h-11 rounded-xl border-border/70 bg-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30" />
+              </div>
+              <p className="text-xs text-muted-foreground">Use your official work email address</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-sm font-semibold">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                <Input id="password" name="password" type={showPassword ? 'text' : 'password'} placeholder="Create a secure password" required minLength={6} className="pl-11 pr-16 h-11 rounded-xl border-border/70 bg-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors">
+                  {showPassword ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="department" className="text-sm font-semibold flex items-center gap-2">
+                Department
+                <span className="text-xs font-normal text-muted-foreground px-1.5 py-0.5 rounded-full bg-muted">Optional</span>
+              </label>
+              <div className="relative">
+                <Building className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                <Input id="department" name="department" type="text" placeholder="e.g., Engineering, Marketing, HR" className="pl-11 h-11 rounded-xl border-border/70 bg-muted/30 focus-visible:ring-1 focus-visible:ring-primary/30" />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Button type="submit" disabled={isPending} className="w-full h-11 rounded-xl text-sm font-semibold border-0 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 shadow-lg shadow-blue-500/20 transition-all group">
+                {isPending ? <><Spinner className="mr-2" />Creating account&hellip;</> : <>Create Account <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-0.5 transition-transform" /></>}
+              </Button>
+            </div>
+
+            <p className="text-center text-xs text-muted-foreground pt-1">
+              By creating an account you agree to our{' '}
+              <span className="text-foreground/70 font-medium hover:underline cursor-pointer">Terms of Service</span>{' '}and{' '}
+              <span className="text-foreground/70 font-medium hover:underline cursor-pointer">Privacy Policy</span>
+            </p>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-border/50 text-center">
+            <p className="text-sm text-muted-foreground">
+              Already have an account?{' '}
+              <Link href="/auth/login" className="text-primary font-semibold hover:underline underline-offset-4">Sign in</Link>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )
