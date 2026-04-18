@@ -5,6 +5,8 @@ import type { DifficultyLevel } from '@/lib/types/database'
 
 const ALL_DIFFICULTIES: DifficultyLevel[] = ['easy', 'medium', 'hard', 'advanced', 'hardcore']
 
+type QuestionOption = { text: string; isCorrect: boolean }
+
 // Difficulty-specific prompts to ensure proper question complexity
 const DIFFICULTY_PROMPTS: Record<DifficultyLevel, string> = {
   easy: `
@@ -100,10 +102,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Insert questions into database
+  const answerPositionPlan = createAnswerPositionPlan(questions.length)
   const questionsToInsert = questions.map((q, i) => ({
     quiz_id,
     question_text: q.question_text,
-    options: q.options,
+    options: randomizeOptions(q.options, answerPositionPlan[i]),
     difficulty: q.difficulty,
     explanation: q.explanation || null,
     is_ai_generated: !!(openaiKey || geminiKey),
@@ -198,7 +201,7 @@ REQUIREMENTS:
 
 Return a JSON array where each item has:
 - "question_text": the question
-- "options": array of exactly 4 objects with "text" (string) and "isCorrect" (boolean, exactly one true)
+- "options": array of exactly 4 objects with "text" (string) and "isCorrect" (boolean, exactly one true). Randomize the correct answer position across A, B, C, and D.
 - "explanation": brief explanation of the correct answer
 - "difficulty": "${diff}"
 
@@ -282,7 +285,7 @@ REQUIREMENTS:
 
 Return a JSON array where each item has:
 - "question_text": the question
-- "options": array of exactly 4 objects with "text" (string) and "isCorrect" (boolean, exactly one true)
+- "options": array of exactly 4 objects with "text" (string) and "isCorrect" (boolean, exactly one true). Randomize the correct answer position across A, B, C, and D.
 - "explanation": brief explanation
 - "difficulty": "${diff}"
 
@@ -359,6 +362,35 @@ function generateTemplateQuestions(topic: string, distribution: Record<string, n
   }
 
   return questions
+}
+
+function createAnswerPositionPlan(count: number) {
+  const positions = Array.from({ length: count }, (_, index) => index % 4)
+  return shuffleOptions(positions)
+}
+
+function randomizeOptions(options: QuestionOption[], targetCorrectIndex: number) {
+  const correct = options.find((option) => option.isCorrect)
+  const incorrect = shuffleOptions(options.filter((option) => !option.isCorrect))
+
+  if (!correct || incorrect.length !== 3) {
+    return shuffleOptions(options)
+  }
+
+  const result = [...incorrect]
+  result.splice(targetCorrectIndex, 0, correct)
+  return result
+}
+
+function shuffleOptions<T>(options: T[]) {
+  const shuffled = [...options]
+
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+
+  return shuffled
 }
 
 function getTemplatesForTopic(topic: string) {

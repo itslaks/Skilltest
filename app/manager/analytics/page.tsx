@@ -9,6 +9,8 @@ import {
   TrendingUp, Users, Trophy, Target 
 } from 'lucide-react'
 import { AssessmentAnalyzer } from '@/components/manager/assessment-analyzer'
+import { DownloadReportButton } from '@/components/manager/download-report-button'
+import { QuickDeleteButton } from '@/components/manager/quick-delete-button'
 
 export default async function AnalyticsPage() {
   const { userId } = await requireManager()
@@ -18,7 +20,7 @@ export default async function AnalyticsPage() {
   // Get quizzes for selection
   const { data: quizzes } = await supabase
     .from('quizzes')
-    .select('id, title, topic')
+    .select('id, title, topic, difficulty, is_active')
     .eq('created_by', userId)
     .order('created_at', { ascending: false })
 
@@ -109,6 +111,43 @@ export default async function AnalyticsPage() {
 
       {/* Assessment Analyzer */}
       <AssessmentAnalyzer />
+
+      {/* Quiz Shortcuts */}
+      {quizzes && quizzes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              Per-Quiz Report Shortcuts
+            </CardTitle>
+            <CardDescription>Export results or remove a quiz without leaving analytics.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y divide-border/50 rounded-xl border border-border/60 overflow-hidden">
+              {quizzes.map((quiz: any) => (
+                <div key={quiz.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{quiz.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {quiz.topic} / {quiz.difficulty} / {quiz.is_active ? 'Active' : 'Draft'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" className="h-8 rounded-xl text-xs" asChild>
+                      <Link href={`/manager/quizzes/${quiz.id}`}>Open</Link>
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-8 rounded-xl text-xs" asChild>
+                      <Link href={`/manager/quizzes/${quiz.id}/edit`}>Edit</Link>
+                    </Button>
+                    <DownloadReportButton quizId={quiz.id} quizTitle={quiz.title} />
+                    <QuickDeleteButton quizId={quiz.id} quizTitle={quiz.title} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Import History */}
       {importHistory && importHistory.length > 0 && (

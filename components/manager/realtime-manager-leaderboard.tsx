@@ -3,26 +3,10 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Trophy, Users, TrendingUp, Clock } from 'lucide-react'
+import { Trophy, Users } from 'lucide-react'
+import { buildCumulativeLeaderboard, formatDuration, type CumulativeAttempt, type CumulativeLeaderboardEntry } from '@/lib/leaderboard'
 
-interface ManagerLeaderboardEntry {
-  user_id: string
-  full_name: string
-  email: string
-  employee_id: string | null
-  department: string | null
-  total_points: number
-  total_quizzes: number
-  avg_score: number
-  total_correct: number
-  total_questions: number
-  total_time: number
-  rank: number
-  earliest_completion?: string
-  latest_completion?: string
-  first_quiz_completed?: string
-}
+type ManagerLeaderboardEntry = CumulativeLeaderboardEntry
 
 interface RealtimeManagerLeaderboardProps {
   initialData: ManagerLeaderboardEntry[]
@@ -39,12 +23,11 @@ export function RealtimeManagerLeaderboard({
 
   useEffect(() => {
     const supabase = createClient()
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    let flashTimer: ReturnType<typeof setTimeout> | null = null
 
     const refreshLeaderboard = async () => {
       try {
-        console.log('Refreshing manager leaderboard data...')
-        
-        // Fetch updated leaderboard data for this manager's quizzes
         const { data: globalLeaderboard, error } = await supabase
           .from('quiz_attempts')
           .select(`
@@ -68,117 +51,51 @@ export function RealtimeManagerLeaderboard({
           return
         }
 
-        // Aggregate by user
-        const userAggregates = new Map<string, any>()
-
-        globalLeaderboard?.forEach((attempt: any) => {
-          const userId = attempt.user_id
-          const existing = userAggregates.get(userId)
-          const completedAt = attempt.completed_at
-          
-          if (existing) {
-            existing.total_points += attempt.points_earned || 0
-            existing.total_quizzes += 1
-            existing.total_correct += attempt.correct_answers || 0
-            existing.total_questions += attempt.total_questions || 0
-            existing.total_time += attempt.time_taken_seconds || 0
-            existing.avg_score = existing.total_questions > 0 
-              ? Math.round((existing.total_correct / existing.total_questions) * 100) 
-              : 0
-            
-            // Track earliest completion for tiebreaking
-            if (completedAt && (!existing.earliest_completion || new Date(completedAt) < new Date(existing.earliest_completion))) {
-              existing.earliest_completion = completedAt
-            }
-            // Track latest completion for showing recent activity
-            if (completedAt && (!existing.latest_completion || new Date(completedAt) > new Date(existing.latest_completion))) {
-              existing.latest_completion = completedAt
-            }
-            // Track first quiz completion
-            if (completedAt && !existing.first_quiz_completed) {
-              existing.first_quiz_completed = completedAt
-            }
-          } else {
-            userAggregates.set(userId, {
-              user_id: userId,
-              full_name: attempt.profiles?.full_name || 'Unknown',
-              email: attempt.profiles?.email || '',
-              employee_id: attempt.profiles?.employee_id || null,
-              department: attempt.profiles?.department || null,
-              total_points: attempt.points_earned || 0,
-              total_quizzes: 1,
-              total_correct: attempt.correct_answers || 0,
-              total_questions: attempt.total_questions || 0,
-              total_time: attempt.time_taken_seconds || 0,
-              avg_score: attempt.score || 0,
-              earliest_completion: completedAt,
-              latest_completion: completedAt,
-              first_quiz_completed: completedAt,
-            })
-          }
-        })
-
-        const updatedLeaderboard = Array.from(userAggregates.values())
-          .sort((a, b) => {
-            // Primary sort: by total points (descending)
-            if (b.total_points !== a.total_points) {
-              return b.total_points - a.total_points
-            }
-            // Secondary sort: by average score (descending)
-            if (b.avg_score !== a.avg_score) {
-              return b.avg_score - a.avg_score
-            }
-            // Tertiary sort: by earliest completion (ascending - earlier wins)
-            return new Date(a.earliest_completion).getTime() - new Date(b.earliest_completion).getTime()
-          })
-          .map((entry, index) => ({ ...entry, rank: index + 1 }))
+        const updatedLeaderboard = buildCumulativeLeaderboard(globalLeaderboard as CumulativeAttempt[])
 
         setLeaderboard(updatedLeaderboard)
         setLastUpdated(new Date())
         setFlash(true)
-        setTimeout(() => setFlash(false), 1000)
+        if (flashTimer) clearTimeout(flashTimer)
+        flashTimer = setTimeout(() => setFlash(false), 1000)
 
       } catch (error) {
         console.error('Manager leaderboard refresh failed:', error)
       }
     }
 
-    // Listen to quiz attempt changes that affect this manager's quizzes
+    const scheduleRefresh = (delay = 300) => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(refreshLeaderboard, delay)
+    }
+
     const channel = supabase
       .channel('manager-leaderboard')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'quiz_attempts' },
-        async (payload) => {
-          // Only refresh when quiz is completed
-          if (payload.new?.status === 'completed' && payload.old?.status !== 'completed') {
-            console.log('Quiz completed - refreshing manager leaderboard')
-            // Add a small delay to ensure triggers have fired
-            setTimeout(refreshLeaderboard, 500)
+        { event: '*', schema: 'public', table: 'quiz_attempts' },
+        (payload) => {
+          const newStatus = 'status' in payload.new ? payload.new.status : null
+          const oldStatus = 'status' in payload.old ? payload.old.status : null
+
+          if (newStatus === 'completed' && oldStatus !== 'completed') {
+            scheduleRefresh(600)
           }
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_stats' },
-        async () => {
-          console.log('User stats changed - refreshing manager leaderboard')
-          await refreshLeaderboard()
-        }
+        () => scheduleRefresh()
       )
       .subscribe()
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      if (flashTimer) clearTimeout(flashTimer)
       supabase.removeChannel(channel)
     }
   }, [managerId])
-
-  const formatTime = (s: number) => {
-    if (!s) return '-'
-    const mins = Math.floor(s / 60)
-    const secs = s % 60
-    return `${mins}m ${secs}s`
-  }
 
   return (
     <div className="space-y-4">
@@ -284,7 +201,7 @@ export function RealtimeManagerLeaderboard({
                       <p className="text-xs text-muted-foreground">Quizzes</p>
                     </div>
                     <div className="text-center hidden sm:block">
-                      <p className="font-semibold">{formatTime(entry.total_time)}</p>
+                      <p className="font-semibold">{formatDuration(entry.total_time)}</p>
                       <p className="text-xs text-muted-foreground">Total Time</p>
                     </div>
                     <div className="text-center hidden md:block">

@@ -1,5 +1,5 @@
 import { getAllBadges } from '@/lib/actions/employee'
-import { Award, Lock, Rocket, Trophy, Zap, Flame, BookOpen, Crown } from 'lucide-react'
+import { Award, Lock, Rocket, Trophy, Zap, Flame, BookOpen, Crown, Target, Medal, ShieldCheck, TrendingUp } from 'lucide-react'
 
 const iconMap: Record<string, any> = {
   rocket: Rocket,
@@ -10,6 +10,10 @@ const iconMap: Record<string, any> = {
   'book-open': BookOpen,
   award: Award,
   crown: Crown,
+  target: Target,
+  medal: Medal,
+  shield: ShieldCheck,
+  trending: TrendingUp,
 }
 
 export default async function BadgesPage() {

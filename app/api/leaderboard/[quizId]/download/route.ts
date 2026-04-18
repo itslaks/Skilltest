@@ -39,6 +39,7 @@ export async function GET(
       .eq('quiz_id', quizId)
       .eq('status', 'completed')
       .order('score', { ascending: false })
+      .order('completed_at', { ascending: true })
       .order('time_taken_seconds', { ascending: true })
 
     if (attemptsError) {

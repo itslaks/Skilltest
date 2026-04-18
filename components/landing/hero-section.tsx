@@ -9,7 +9,7 @@ import Link from "next/link";
 const words = ["assess", "challenge", "rank", "grow"];
 
 export function HeroSection() {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const [wordIndex, setWordIndex] = useState(0);
 
   useEffect(() => {

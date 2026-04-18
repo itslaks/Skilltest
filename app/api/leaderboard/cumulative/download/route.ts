@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
+import { buildCumulativeLeaderboard, formatDuration, type CumulativeAttempt } from '@/lib/leaderboard'
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,57 +49,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Aggregate by user for cumulative leaderboard
-    const userAggregates = new Map<string, {
-      user_id: string
-      full_name: string
-      email: string
-      employee_id: string | null
-      department: string | null
-      total_points: number
-      total_quizzes: number
-      avg_score: number
-      total_correct: number
-      total_questions: number
-      total_time: number
-    }>()
-
-    globalLeaderboard?.forEach((attempt: any) => {
-      const uId = attempt.user_id
-      const existing = userAggregates.get(uId)
-      
-      if (existing) {
-        existing.total_points += attempt.points_earned || 0
-        existing.total_quizzes += 1
-        existing.total_correct += attempt.correct_answers || 0
-        existing.total_questions += attempt.total_questions || 0
-        existing.total_time += attempt.time_taken_seconds || 0
-        existing.avg_score = existing.total_questions > 0 
-          ? Math.round((existing.total_correct / existing.total_questions) * 100) 
-          : 0
-      } else {
-        userAggregates.set(uId, {
-          user_id: uId,
-          full_name: attempt.profiles?.full_name || 'Unknown',
-          email: attempt.profiles?.email || '',
-          employee_id: attempt.profiles?.employee_id || null,
-          department: attempt.profiles?.department || null,
-          total_points: attempt.points_earned || 0,
-          total_quizzes: 1,
-          total_correct: attempt.correct_answers || 0,
-          total_questions: attempt.total_questions || 0,
-          total_time: attempt.time_taken_seconds || 0,
-          avg_score: attempt.score || 0,
-        })
-      }
-    })
-
-    const cumulativeLeaderboard = Array.from(userAggregates.values())
-      .sort((a, b) => b.total_points - a.total_points)
+    const cumulativeLeaderboard = buildCumulativeLeaderboard(globalLeaderboard as CumulativeAttempt[])
 
     const rows = cumulativeLeaderboard.map((entry, index) => {
-      const mins = Math.floor(entry.total_time / 60)
-      const secs = entry.total_time % 60
       return {
         'Rank': index + 1,
         'Employee Name': entry.full_name,
@@ -110,7 +63,7 @@ export async function GET(request: NextRequest) {
         'Total Quizzes Taken': entry.total_quizzes,
         'Total Correct Answers': entry.total_correct,
         'Total Questions Answered': entry.total_questions,
-        'Total Time Spent': `${mins}m ${secs}s`,
+        'Total Time Spent': formatDuration(entry.total_time),
       }
     })
 

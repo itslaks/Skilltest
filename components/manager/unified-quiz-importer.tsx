@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useRef, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -17,7 +16,6 @@ import {
   Wand2, 
   CheckCircle2, 
   XCircle, 
-  File,
   Type,
   Sparkles,
   AlertCircle,
@@ -26,27 +24,47 @@ import {
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { bulkCreateQuestions } from '@/lib/actions/quiz'
-import type { DifficultyLevel, CreateQuestionInput } from '@/lib/types/database'
+import type { DifficultyLevel, CreateQuestionInput, ParsedQuestion } from '@/lib/types/database'
 import * as XLSX from 'xlsx'
 
 const DIFFICULTIES: DifficultyLevel[] = ['easy', 'medium', 'hard', 'advanced', 'hardcore']
-const DIFFICULTY_DESCRIPTIONS: Record<DifficultyLevel, string> = {
-  easy: 'Basic recall, definitions, simple facts',
-  medium: 'Understanding, application of concepts',
-  hard: 'Analysis, problem-solving, scenarios',
-  advanced: 'Evaluation, synthesis, complex scenarios',
-  hardcore: 'Expert-level, edge cases, nuanced problems',
+type QuestionSpreadsheetRow = Record<string, string | number | boolean | null | undefined>
+
+const QUESTION_COLUMNS = {
+  question: ['question_text', 'question', 'q', 'prompt', 'questiontext'],
+  optionA: ['option_a', 'optiona', 'a', 'choicea', 'answer_a'],
+  optionB: ['option_b', 'optionb', 'b', 'choiceb', 'answer_b'],
+  optionC: ['option_c', 'optionc', 'c', 'choicec', 'answer_c'],
+  optionD: ['option_d', 'optiond', 'd', 'choiced', 'answer_d'],
+  correct: ['correct_answer', 'correctanswer', 'answer', 'correct', 'key'],
+  difficulty: ['difficulty', 'level'],
+  explanation: ['explanation', 'reason', 'rationale'],
 }
 
-interface ParsedQuestion {
-  question_text: string
-  option_a: string
-  option_b: string
-  option_c: string
-  option_d: string
-  correct_answer: string
-  difficulty?: DifficultyLevel
-  explanation?: string
+function normalizeHeader(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function getCell(row: QuestionSpreadsheetRow, aliases: string[]) {
+  const normalizedAliases = new Set(aliases.map(normalizeHeader))
+  const key = Object.keys(row).find((candidate) => normalizedAliases.has(normalizeHeader(candidate)))
+  const value = key ? row[key] : undefined
+  return value === null || value === undefined ? '' : String(value).trim()
+}
+
+function normalizeDifficulty(value: string, fallback: DifficultyLevel): DifficultyLevel {
+  const normalized = value.toLowerCase()
+  return DIFFICULTIES.includes(normalized as DifficultyLevel) ? normalized as DifficultyLevel : fallback
+}
+
+function normalizeCorrectAnswer(rawAnswer: string, options: string[]) {
+  const answer = rawAnswer.trim()
+  const letter = answer.charAt(0).toUpperCase()
+  if (['A', 'B', 'C', 'D'].includes(letter)) return letter
+
+  const answerText = answer.toLowerCase()
+  const matchIndex = options.findIndex((option) => option.trim().toLowerCase() === answerText)
+  return matchIndex >= 0 ? ['A', 'B', 'C', 'D'][matchIndex] : ''
 }
 
 interface UnifiedQuizImporterProps {
@@ -62,11 +80,9 @@ export function UnifiedQuizImporter({
   quizDifficulty,
   onQuestionsAdded 
 }: UnifiedQuizImporterProps) {
-  const router = useRouter()
   const { toast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  const [isPending, startTransition] = useTransition()
   const [isProcessing, setIsProcessing] = useState(false)
   
   const [inputType, setInputType] = useState<'upload' | 'paste'>('upload')
@@ -113,33 +129,65 @@ export function UnifiedQuizImporter({
       const workbook = XLSX.read(data)
       const sheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[sheetName]
-      const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[]
+      const jsonData = XLSX.utils.sheet_to_json<QuestionSpreadsheetRow>(worksheet)
       
       if (jsonData.length === 0) {
         setError('The spreadsheet appears to be empty.')
         return
       }
 
-      const questions: ParsedQuestion[] = jsonData.map((row) => ({
-        question_text: row['question_text'] || row['Question'] || row['question'] || row['Q'] || '',
-        option_a: row['option_a'] || row['Option A'] || row['A'] || row['a'] || '',
-        option_b: row['option_b'] || row['Option B'] || row['B'] || row['b'] || '',
-        option_c: row['option_c'] || row['Option C'] || row['C'] || row['c'] || '',
-        option_d: row['option_d'] || row['Option D'] || row['D'] || row['d'] || '',
-        correct_answer: (row['correct_answer'] || row['Correct Answer'] || row['Answer'] || row['correct'] || 'A').toString().toUpperCase(),
-        difficulty: row['difficulty'] || row['Difficulty'] || quizDifficulty,
-        explanation: row['explanation'] || row['Explanation'] || '',
-      })).filter(q => q.question_text && q.option_a && q.option_b)
+      const errors: string[] = []
+      const seenQuestions = new Set<string>()
+      const questions: ParsedQuestion[] = []
+
+      jsonData.forEach((row, index) => {
+        const questionText = getCell(row, QUESTION_COLUMNS.question)
+        const optionA = getCell(row, QUESTION_COLUMNS.optionA)
+        const optionB = getCell(row, QUESTION_COLUMNS.optionB)
+        const optionC = getCell(row, QUESTION_COLUMNS.optionC)
+        const optionD = getCell(row, QUESTION_COLUMNS.optionD)
+        const options = [optionA, optionB, optionC, optionD]
+        const correctAnswer = normalizeCorrectAnswer(getCell(row, QUESTION_COLUMNS.correct), options)
+        const duplicateKey = questionText.toLowerCase().replace(/\s+/g, ' ').trim()
+
+        if (!questionText || options.some((option) => !option)) {
+          errors.push(`Row ${index + 1}: question and all 4 options are required`)
+          return
+        }
+        if (!correctAnswer) {
+          errors.push(`Row ${index + 1}: correct answer must be A, B, C, D, or exact option text`)
+          return
+        }
+        if (seenQuestions.has(duplicateKey)) {
+          errors.push(`Row ${index + 1}: duplicate question skipped`)
+          return
+        }
+
+        seenQuestions.add(duplicateKey)
+        questions.push({
+          question_text: questionText,
+          option_a: optionA,
+          option_b: optionB,
+          option_c: optionC,
+          option_d: optionD,
+          correct_answer: correctAnswer,
+          difficulty: normalizeDifficulty(getCell(row, QUESTION_COLUMNS.difficulty), quizDifficulty),
+          explanation: getCell(row, QUESTION_COLUMNS.explanation),
+        })
+      })
 
       if (questions.length === 0) {
-        setError('No valid questions found. Ensure columns include: question_text, option_a, option_b, option_c, option_d, correct_answer')
+        setError(`No valid questions found. Required columns: question_text, option_a, option_b, option_c, option_d, correct_answer. ${errors.slice(0, 3).join('; ')}`)
         return
       }
 
       setParsedQuestions(questions)
+      if (errors.length > 0) {
+        setError(`${errors.length} row(s) skipped: ${errors.slice(0, 3).join('; ')}`)
+      }
       toast({
         title: 'Spreadsheet Parsed',
-        description: `Found ${questions.length} questions ready to import.`,
+        description: `Found ${questions.length} valid questions ready to import.`,
       })
     } catch (err: any) {
       setError('Failed to parse spreadsheet: ' + (err.message || 'Unknown error'))
@@ -172,21 +220,18 @@ export function UnifiedQuizImporter({
         title: 'Content Extracted',
         description: `Successfully extracted ${result.wordCount} words. Ready for AI generation.`,
       })
+      return result.text as string
     } catch (err: any) {
       setError(err.message)
+      return null
     } finally {
       setIsProcessing(false)
     }
   }
 
   async function processAIGeneration() {
-    if (!extractedContent) {
-      await handleExtractContent()
-      // Note: In a real flow, you might want to wait for state to update, 
-      // but let's just require them to extract first or handle it automatically if content is available.
-      // To keep it simple, if extractedContent is empty after handleExtractContent, we return.
-      return
-    }
+    const contentForGeneration = extractedContent || await handleExtractContent()
+    if (!contentForGeneration) return
 
     setError(null)
     setSuccess(null)
@@ -198,7 +243,7 @@ export function UnifiedQuizImporter({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           quiz_id: quizId,
-          content: extractedContent,
+          content: contentForGeneration,
           difficulty,
           count: questionCount,
           topic: quizTopic,
@@ -265,8 +310,7 @@ export function UnifiedQuizImporter({
 
   function handleAction() {
     if (useAI) {
-      if (!extractedContent) handleExtractContent()
-      else processAIGeneration()
+      processAIGeneration()
     } else {
       processDirectImport()
     }
@@ -482,7 +526,7 @@ export function UnifiedQuizImporter({
           {isProcessing ? (
             <><Spinner className="mr-2 h-4 w-4" /> Processing...</>
           ) : useAI ? (
-            !extractedContent ? <><Wand2 className="mr-2 h-4 w-4" /> Extract Content</> : <><Sparkles className="mr-2 h-4 w-4" /> Generate {questionCount} Questions</>
+            !extractedContent ? <><Wand2 className="mr-2 h-4 w-4" /> Extract and Generate {questionCount} Questions</> : <><Sparkles className="mr-2 h-4 w-4" /> Generate {questionCount} Questions</>
           ) : (
             <><Upload className="mr-2 h-4 w-4" /> Import {parsedQuestions.length} Questions</>
           )}

@@ -3,12 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { EmployeeImporter } from '@/components/manager/employee-importer'
 import { QuizAssignmentManager } from '@/components/manager/quiz-assignment-manager'
 import { AddEmployeeDialog } from '@/components/manager/add-employee-dialog'
+import { EditEmployeeDialog } from '@/components/manager/edit-employee-dialog'
 import { DeleteEmployeeButton } from '@/components/manager/delete-employee-button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Users, Building2, History, Trophy, Flame, UserPlus } from 'lucide-react'
+import { Users, Building2, History, Trophy, Flame, Download, FileSpreadsheet, ClipboardList } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export default async function ManagerEmployeesPage() {
@@ -42,14 +43,20 @@ export default async function ManagerEmployeesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Employees</h1>
-          <p className="text-muted-foreground mt-1">Manage your team and import new employees</p>
+          <p className="text-muted-foreground mt-1">Add, edit, assign, export, and remove employees from one place</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <AddEmployeeDialog />
           <Button variant="outline" asChild>
-            <a href="/api/employees/template.xlsx" download>
-              <Trophy className="h-4 w-4 mr-2" />
+            <a href="/api/employees/template">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
               Download Template
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href="/api/employees/export">
+              <Download className="h-4 w-4 mr-2" />
+              Export Employees
             </a>
           </Button>
         </div>
@@ -113,10 +120,34 @@ export default async function ManagerEmployeesPage() {
         </Card>
       </div>
 
-      {/* Import section */}
-      <EmployeeImporter />
+      <div className="grid gap-4 xl:grid-cols-[1fr_1.1fr]">
+        <Card className="border-blue-100 bg-blue-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ClipboardList className="h-5 w-5 text-blue-600" />
+              Manager Quick Actions
+            </CardTitle>
+            <CardDescription>Most-used actions are available here and in each row below.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <AddEmployeeDialog />
+            <Button variant="outline" asChild>
+              <a href="/api/employees/export">
+                <Download className="h-4 w-4 mr-2" />
+                Download Employee Report
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href="/manager/quizzes">
+                <Trophy className="h-4 w-4 mr-2" />
+                Assign Quizzes
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+        <EmployeeImporter />
+      </div>
 
-      {/* Quiz Assignment section */}
       <QuizAssignmentManager
         quizzes={(quizzes || []).map((q: any) => ({
           id: q.id,
@@ -207,12 +238,24 @@ export default async function ManagerEmployeesPage() {
                               )}
                             </td>
                             <td className="p-3">
-                              <DeleteEmployeeButton
-                                employeeId={emp.id}
-                                employeeName={emp.full_name || 'Unknown'}
-                                employeeEmail={emp.email}
-                                hasQuizAttempts={stats?.tests_completed > 0}
-                              />
+                              <div className="flex flex-wrap items-center gap-2">
+                                <EditEmployeeDialog
+                                  employee={{
+                                    id: emp.id,
+                                    email: emp.email,
+                                    full_name: emp.full_name,
+                                    employee_id: emp.employee_id,
+                                    department: emp.department,
+                                    domain: emp.domain,
+                                  }}
+                                />
+                                <DeleteEmployeeButton
+                                  employeeId={emp.id}
+                                  employeeName={emp.full_name || 'Unknown'}
+                                  employeeEmail={emp.email}
+                                  hasQuizAttempts={stats?.tests_completed > 0}
+                                />
+                              </div>
                             </td>
                           </tr>
                         )

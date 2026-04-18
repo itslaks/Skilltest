@@ -10,6 +10,11 @@ import { getSupabaseUrl, getSupabaseAnonKey, getSupabaseServiceRoleKey } from '@
  */
 export async function createClient() {
   const cookieStore = await cookies()
+  type CookieToSet = {
+    name: string
+    value: string
+    options?: Parameters<typeof cookieStore.set>[2]
+  }
 
   return createServerClient(
     getSupabaseUrl(),
@@ -19,9 +24,9 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(cookiesToSet: any[]) {
+        setAll(cookiesToSet: CookieToSet[]) {
           try {
-            cookiesToSet.forEach(({ name, value, options }: any) =>
+            cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             )
           } catch {

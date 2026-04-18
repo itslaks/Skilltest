@@ -1,7 +1,7 @@
 import { getAvailableQuizzes } from '@/lib/actions/employee'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { Clock, FileQuestion, CheckCircle2, ArrowRight, Play, RotateCcw } from 'lucide-react'
+import { Clock, FileQuestion, CheckCircle2, Play, Trophy } from 'lucide-react'
 
 const difficultyColors: Record<string, string> = {
   easy: 'bg-emerald-100 text-emerald-700',
@@ -20,15 +20,22 @@ export default async function EmployeeQuizzesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">My Quizzes</h1>
           <p className="text-muted-foreground mt-1 text-sm">Browse assessments, track progress, earn points</p>
         </div>
-        <div className="flex gap-2 text-xs font-medium bg-white border border-border/60 px-4 py-2 rounded-xl shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="h-9 rounded-xl text-xs font-semibold" asChild>
+            <Link href="/employee/leaderboard">
+              <Trophy className="mr-1.5 h-3.5 w-3.5" />Live Leaderboard
+            </Link>
+          </Button>
+          <div className="flex gap-2 text-xs font-medium bg-white border border-border/60 px-4 py-2 rounded-xl shadow-sm">
           <span className="text-emerald-600">{available.length} available</span>
           {inProgress.length > 0 && <><span className="text-muted-foreground">·</span><span className="text-amber-600">{inProgress.length} in progress</span></>}
           {completed.length > 0 && <><span className="text-muted-foreground">·</span><span className="text-blue-600">{completed.length} done</span></>}
+          </div>
         </div>
       </div>
 
@@ -117,6 +124,13 @@ function QuizCard({ quiz, status }: { quiz: any; status: string }) {
               {status === 'completed' ? <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Results</> : status === 'in_progress' ? <><Play className="h-3.5 w-3.5 mr-1.5" />Continue</> : <><Play className="h-3.5 w-3.5 mr-1.5" />Start Quiz</>}
             </Link>
           </Button>
+          {status === 'completed' && (
+            <Button className="h-9 rounded-xl text-xs font-semibold" asChild>
+              <Link href={`/employee/quizzes/${quiz.id}/leaderboard`}>
+                <Trophy className="h-3.5 w-3.5 mr-1.5" />Rank
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </div>

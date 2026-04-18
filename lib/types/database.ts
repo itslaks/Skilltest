@@ -72,7 +72,7 @@ export interface Badge {
   name: string
   description: string | null
   icon: string | null
-  criteria: Record<string, any> | null
+  criteria: Record<string, unknown> | null
   points: number
   created_at: string
 }
@@ -144,6 +144,19 @@ export interface EmployeeImport {
   role?: UserRole
 }
 
+export interface EmployeeImportError {
+  row: number
+  email: string
+  error: string
+}
+
+export interface EmployeeImportResult {
+  total: number
+  successful: number
+  failed: number
+  errors: EmployeeImportError[]
+}
+
 export interface EmployeeImportRecord {
   id: string
   uploaded_by: string
@@ -152,7 +165,7 @@ export interface EmployeeImportRecord {
   successful_imports: number
   failed_imports: number
   status: 'processing' | 'completed' | 'failed'
-  error_log: any[] | null
+  error_log: EmployeeImportError[] | null
   created_at: string
 }
 
@@ -236,6 +249,17 @@ export interface CreateQuestionInput {
   explanation?: string
   is_ai_generated?: boolean
   order_index?: number
+}
+
+export interface ParsedQuestion {
+  question_text: string
+  option_a: string
+  option_b: string
+  option_c: string
+  option_d: string
+  correct_answer: string
+  difficulty?: DifficultyLevel
+  explanation?: string
 }
 
 export interface SubmitQuizInput {

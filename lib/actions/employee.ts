@@ -128,6 +128,10 @@ export async function submitQuizAttempt(input: SubmitQuizInput) {
 
     console.log(`Quiz submission successful for user ${user.id}, quiz ${quiz_id}`)
     revalidatePath('/employee', 'layout')
+    revalidatePath('/employee/leaderboard')
+    revalidatePath(`/employee/quizzes/${quiz_id}/leaderboard`)
+    revalidatePath(`/employee/quizzes/${quiz_id}/results`)
+    revalidatePath('/manager/leaderboard')
     return { data }
 
   } catch (error) {

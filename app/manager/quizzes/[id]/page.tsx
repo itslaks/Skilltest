@@ -82,6 +82,11 @@ export default async function QuizDetailPage({ params, searchParams }: { params:
               <Pencil className="mr-2 h-4 w-4" /> Edit Quiz
             </Link>
           </Button>
+          <Button variant="outline" asChild>
+            <a href={`/api/leaderboard/${quiz.id}/download`}>
+              <Download className="mr-2 h-4 w-4" /> Download Results
+            </a>
+          </Button>
           <QuickDeleteButton 
             quizId={quiz.id} 
             quizTitle={quiz.title}
@@ -238,14 +243,12 @@ export default async function QuizDetailPage({ params, searchParams }: { params:
             </CardTitle>
             <CardDescription>{leaderboard?.length || 0} participants</CardDescription>
           </div>
-          {leaderboard && leaderboard.length > 0 && (
-            <Button variant="outline" asChild>
-              <a href={`/api/leaderboard/${quizId}/download`}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Excel
-              </a>
-            </Button>
-          )}
+          <Button variant="outline" asChild>
+            <a href={`/api/leaderboard/${quizId}/download`}>
+              <Download className="mr-2 h-4 w-4" />
+              Download Excel
+            </a>
+          </Button>
         </CardHeader>
         <CardContent>
           {leaderboard && leaderboard.length > 0 ? (

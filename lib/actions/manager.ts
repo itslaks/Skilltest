@@ -3,44 +3,102 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { requireManager } from '@/lib/rbac'
 import { revalidatePath } from 'next/cache'
+import type { ApiResponse, EmployeeImport, EmployeeImportError, EmployeeImportResult } from '@/lib/types/database'
 
 // ─── Import employees from parsed Excel data ─────────────────────────
-export async function importEmployees(employees: { email: string; full_name: string; domain: string; employee_id?: string }[]) {
+export async function importEmployees(employees: EmployeeImport[]): Promise<ApiResponse<EmployeeImportResult>> {
   const { userId } = await requireManager()
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   let successful = 0
   let failed = 0
-  const errors: { row: number; email: string; error: string }[] = []
+  const errors: EmployeeImportError[] = []
+  const seenEmails = new Set<string>()
 
   for (let i = 0; i < employees.length; i++) {
     const emp = employees[i]
+    const email = emp.email?.trim().toLowerCase()
+    const fullName = emp.full_name?.trim()
 
-    // Validate each record
-    if (!emp.email || !emp.full_name) {
+    if (!email || !fullName) {
       failed++
-      errors.push({ row: i + 1, email: emp.email || 'N/A', error: 'Missing email or name' })
+      errors.push({ row: i + 1, email: email || 'N/A', error: 'Missing email or name' })
       continue
     }
 
-    // Check if profile already exists
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      failed++
+      errors.push({ row: i + 1, email, error: 'Invalid email address' })
+      continue
+    }
+
+    if (seenEmails.has(email)) {
+      failed++
+      errors.push({ row: i + 1, email, error: 'Duplicate email in import file' })
+      continue
+    }
+    seenEmails.add(email)
+
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
-      .eq('email', emp.email.toLowerCase())
+      .eq('email', email)
       .single()
 
     if (existingProfile) {
-      // Update domain for existing user
-      await supabase
+      const { error } = await supabase
         .from('profiles')
-        .update({ domain: emp.domain, employee_id: emp.employee_id || null })
+        .update({
+          full_name: fullName,
+          domain: emp.domain || 'General',
+          department: emp.domain || 'General',
+          employee_id: emp.employee_id || null,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', existingProfile.id)
+      if (error) {
+        failed++
+        errors.push({ row: i + 1, email, error: error.message })
+        continue
+      }
       successful++
     } else {
-      // Create invite (user will need to sign up)
-      // For now, store as a pending import record
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email,
+        password: generateTempPassword(),
+        email_confirm: true,
+        user_metadata: {
+          role: 'employee',
+          full_name: fullName,
+        },
+      })
+
+      if (authError || !authData.user) {
+        failed++
+        errors.push({ row: i + 1, email, error: authError?.message || 'Could not create user' })
+        continue
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          email,
+          full_name: fullName,
+          employee_id: emp.employee_id || null,
+          department: emp.domain || 'General',
+          domain: emp.domain || 'General',
+          role: 'employee',
+        })
+
+      if (profileError) {
+        await supabase.auth.admin.deleteUser(authData.user.id)
+        failed++
+        errors.push({ row: i + 1, email, error: profileError.message })
+        continue
+      }
+
       successful++
     }
   }
@@ -65,6 +123,15 @@ export async function importEmployees(employees: { email: string; full_name: str
       errors,
     }
   }
+}
+
+function generateTempPassword(): string {
+  const chars = 'ABCDEFGHJKLMNOPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+  let password = ''
+  for (let i = 0; i < 12; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return `${password}!`
 }
 
 // ─── Get all employees (for manager view) ─────────────────────────────

@@ -51,7 +51,7 @@ export async function signUp(formData: FormData) {
     await syncProfileFromUserMetadata(user.id, user.user_metadata);
   }
 
-  redirect(`/auth/sign-up-success?email=${encodeURIComponent(email)}`)
+  return { success: true, redirectTo: `/auth/sign-up-success?email=${encodeURIComponent(email)}` }
 }
 
 export async function signIn(formData: FormData) {
@@ -90,7 +90,7 @@ export async function signIn(formData: FormData) {
   const role = profile?.role || data.user?.user_metadata?.role || 'employee'
   const defaultRedirect = role === 'manager' || role === 'admin' ? '/manager' : '/employee'
 
-  redirect(redirectTo || defaultRedirect)
+  return { success: true, redirectTo: redirectTo || defaultRedirect }
 }
 
 export async function signInWithMagicLink(formData: FormData) {
@@ -229,7 +229,7 @@ export async function sendPasswordReset(formData: FormData) {
   if (!email) return { error: 'Email is required' };
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: typeof window !== 'undefined' ? window.location.origin + '/auth/update-password' : undefined,
+    redirectTo: `${getSiteUrl()}/auth/callback?next=/auth/update-password`,
   });
   if (error) return { error: error.message };
   return { success: true };

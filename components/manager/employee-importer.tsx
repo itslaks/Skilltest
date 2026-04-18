@@ -6,20 +6,36 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { importEmployees } from '@/lib/actions/manager'
+import type { EmployeeImport, EmployeeImportResult } from '@/lib/types/database'
 import { Upload, Users, CheckCircle2, XCircle, FileSpreadsheet } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
-interface ImportResult {
-  total: number
-  successful: number
-  failed: number
-  errors: { row: number; email: string; error: string }[]
+type SpreadsheetRow = Record<string, string | number | boolean | null | undefined>
+type EmployeeImportPreview = EmployeeImport & { s_no: string }
+
+const EMPLOYEE_COLUMNS = {
+  serial: ['s.no', 'sno', 'serial', 'serialno', 'no'],
+  email: ['email', 'emailaddress', 'mail', 'mailid', 'employeeemail', 'candidateemailaddress'],
+  name: ['name', 'fullname', 'full_name', 'employeename', 'candidatefullname'],
+  domain: ['domain', 'department', 'team', 'businessunit', 'skilldomain'],
+  employeeId: ['employeeid', 'employee_id', 'empid', 'id', 'staffid'],
+}
+
+function normalizeHeader(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function getCell(row: SpreadsheetRow, aliases: string[]) {
+  const normalizedAliases = new Set(aliases.map(normalizeHeader))
+  const key = Object.keys(row).find((candidate) => normalizedAliases.has(normalizeHeader(candidate)))
+  const value = key ? row[key] : undefined
+  return value === null || value === undefined ? '' : String(value).trim()
 }
 
 export function EmployeeImporter() {
   const [isPending, startTransition] = useTransition()
-  const [result, setResult] = useState<ImportResult | null>(null)
-  const [preview, setPreview] = useState<any[] | null>(null)
+  const [result, setResult] = useState<EmployeeImportResult | null>(null)
+  const [preview, setPreview] = useState<EmployeeImportPreview[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -35,32 +51,53 @@ export function EmployeeImporter() {
         const data = new Uint8Array(evt.target?.result as ArrayBuffer)
         const workbook = XLSX.read(data, { type: 'array' })
         const sheet = workbook.Sheets[workbook.SheetNames[0]]
-        const json = XLSX.utils.sheet_to_json<any>(sheet)
+        const json = XLSX.utils.sheet_to_json<SpreadsheetRow>(sheet)
 
         if (json.length === 0) {
           setError('Excel file is empty')
           return
         }
 
-        // Normalize column names to match user's s.no, Email, name requirement
-        const normalized = json.map((row: any) => ({
-          s_no: (row['s.no'] || row['S.No'] || row.sno || row.Serial || '').toString().trim(),
-          email: (row.Email || row.email || row.EMAIL || '').toString().trim().toLowerCase(),
-          full_name: (row.name || row.Name || row.full_name || row['Full Name'] || '').toString().trim(),
-          domain: (row.domain || row.Domain || row.DOMAIN || row.department || row.Department || '').toString().trim(),
-          employee_id: (row.employee_id || row['Employee ID'] || row.employeeId || row.ID || '').toString().trim() || undefined,
+        const normalized: EmployeeImportPreview[] = json.map((row) => ({
+          s_no: getCell(row, EMPLOYEE_COLUMNS.serial),
+          email: getCell(row, EMPLOYEE_COLUMNS.email).toLowerCase(),
+          full_name: getCell(row, EMPLOYEE_COLUMNS.name),
+          domain: getCell(row, EMPLOYEE_COLUMNS.domain) || 'General',
+          employee_id: getCell(row, EMPLOYEE_COLUMNS.employeeId) || undefined,
         }))
+        const seenEmails = new Set<string>()
+        const validRows: EmployeeImportPreview[] = []
+        const rowErrors: string[] = []
 
-        // Validation for required columns
-        const firstValid = normalized[0]
-        if (!firstValid.email || !firstValid.full_name) {
-          setError('Excel must contain "Email" and "name" columns.')
+        normalized.forEach((row, index) => {
+          const rowNumber = row.s_no || String(index + 1)
+          if (!row.email || !row.full_name) {
+            rowErrors.push(`Row ${rowNumber}: missing email or name`)
+            return
+          }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) {
+            rowErrors.push(`Row ${rowNumber}: invalid email`)
+            return
+          }
+          if (seenEmails.has(row.email)) {
+            rowErrors.push(`Row ${rowNumber}: duplicate email`)
+            return
+          }
+          seenEmails.add(row.email)
+          validRows.push(row)
+        })
+
+        if (validRows.length === 0) {
+          setError(`No valid employees found. Accepted columns: Email, name/full_name, domain/department, employee_id. ${rowErrors.slice(0, 3).join('; ')}`)
           return
         }
 
-        setPreview(normalized)
+        setPreview(validRows)
+        if (rowErrors.length > 0) {
+          setError(`${rowErrors.length} row(s) skipped: ${rowErrors.slice(0, 3).join('; ')}`)
+        }
       } catch (err) {
-        setError('Failed to parse Excel file. Ensure it has columns: email, name, domain')
+        setError('Failed to parse file. Use Excel or CSV with Email and name columns.')
       }
     }
     reader.readAsArrayBuffer(file)
@@ -110,8 +147,8 @@ export function EmployeeImporter() {
           Import Employees
         </CardTitle>
         <CardDescription className="text-base mt-2">
-          Upload an Excel file with columns: <strong>s.no</strong>, <strong>Email</strong>, <strong>name</strong>
-          {' '}(optional: <strong>domain</strong>, <strong>employee_id</strong>).
+          Upload Excel or CSV with <strong>Email</strong> and <strong>name</strong>.
+          Optional columns: <strong>domain</strong>, <strong>department</strong>, <strong>employee_id</strong>.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -191,7 +228,7 @@ export function EmployeeImporter() {
                 className="rounded-full px-8 bg-green-600 hover:bg-green-700 text-white font-bold"
               >
                 {isPending ? <Spinner className="mr-2" /> : <Users className="mr-2 h-5 w-5" />}
-                Import {preview.length} Employees
+                Import {preview.length} Valid Employees
               </Button>
             </div>
 

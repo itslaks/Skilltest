@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
@@ -9,16 +10,20 @@ import { signUp } from '@/lib/actions/auth'
 import { Mail, Lock, User, Building, Sparkles, ArrowRight, CheckCircle2, ShieldCheck, Zap } from 'lucide-react'
 
 export default function SignUpPage() {
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [showPassword, setShowPassword] = useState(false)
 
-  async function handleSignUp(formData: FormData) {
+  function handleSignUp(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
     setError(null)
+    const formData = new FormData(event.currentTarget)
     formData.append('role', 'employee')
     startTransition(async () => {
       const result = await signUp(formData)
       if (result?.error) setError(result.error)
+      else if (result?.redirectTo) router.push(result.redirectTo)
     })
   }
 
@@ -60,10 +65,6 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        <div className="relative z-10 border border-white/10 rounded-2xl p-5 bg-white/5">
-          <p className="text-white/70 text-sm leading-relaxed italic">&ldquo;SkillTest made our team assessments 3&times; faster and the insights are incredibly actionable.&rdquo;</p>
-          <p className="text-white/40 text-xs mt-3 font-medium">&mdash; HR Manager, Fortune 500</p>
-        </div>
       </div>
 
       {/* Right form panel */}
@@ -85,7 +86,7 @@ export default function SignUpPage() {
             <p className="text-muted-foreground mt-1.5">Get started with your employee assessments</p>
           </div>
 
-          <form action={handleSignUp} className="space-y-4">
+          <form onSubmit={handleSignUp} className="space-y-4">
             {error && (
               <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
                 <span className="shrink-0">⚠️</span>{error}

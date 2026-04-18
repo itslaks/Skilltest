@@ -33,13 +33,13 @@ interface QuizCompletionEntry {
 interface QuizCompletionDetailsProps {
   completions: QuizCompletionEntry[]
   quizTitle?: string
-  onExport?: () => void
+  exportHref?: string
 }
 
 export function QuizCompletionDetails({ 
   completions, 
   quizTitle,
-  onExport 
+  exportHref,
 }: QuizCompletionDetailsProps) {
   const formatTime = (seconds: number) => {
     if (!seconds) return '-'
@@ -156,10 +156,12 @@ export function QuizCompletionDetails({
               Showing who completed {quizTitle ? 'this quiz' : 'quizzes'} and their performance
             </p>
           </div>
-          {onExport && completions.length > 0 && (
-            <Button onClick={onExport} variant="outline" size="sm">
+          {exportHref && completions.length > 0 && (
+            <Button asChild variant="outline" size="sm">
+              <a href={exportHref}>
               <Download className="mr-2 h-4 w-4" />
               Export Results
+              </a>
             </Button>
           )}
         </CardHeader>

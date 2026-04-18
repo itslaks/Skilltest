@@ -16,6 +16,7 @@ import {
   Target,
 } from 'lucide-react'
 import { DownloadReportButton } from '@/components/manager/download-report-button'
+import { QuickDeleteButton } from '@/components/manager/quick-delete-button'
 
 export default async function ManagerReportsPage() {
   const { userId } = await requireManager()
@@ -213,11 +214,14 @@ export default async function ManagerReportsPage() {
                     )}
 
                     {/* Status + Download */}
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                       <Badge variant={quiz.is_active ? 'default' : 'secondary'} className="text-xs">
                         {quiz.is_active ? '● Active' : '○ Inactive'}
                       </Badge>
-                      <DownloadReportButton quizId={quiz.id} quizTitle={quiz.title} />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <DownloadReportButton quizId={quiz.id} quizTitle={quiz.title} />
+                        <QuickDeleteButton quizId={quiz.id} quizTitle={quiz.title} hasAttempts={hasAttempts} />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

@@ -24,6 +24,37 @@ export default async function EmployeeDashboard() {
 
   const activeQuizzes = quizzes?.filter((q: any) => !q.attemptStatus || q.attemptStatus === 'in_progress') || []
   const completedQuizzes = quizzes?.filter((q: any) => q.attemptStatus === 'completed') || []
+  const inProgressQuiz = activeQuizzes.find((q: any) => q.attemptStatus === 'in_progress')
+  const nextQuiz = inProgressQuiz || activeQuizzes[0]
+  const latestAttempt = stats?.recentAttempts?.[0]
+  const nextAction = nextQuiz
+    ? {
+        title: inProgressQuiz ? 'Continue your quiz' : 'Start your next quiz',
+        description: inProgressQuiz
+          ? `${inProgressQuiz.title} is waiting where you left off.`
+          : `${nextQuiz.title} is ready for you.`,
+        href: `/employee/quizzes/${nextQuiz.id}`,
+        cta: inProgressQuiz ? 'Continue' : 'Start quiz',
+        icon: FileQuestion,
+        tone: 'blue',
+      }
+    : latestAttempt
+      ? {
+          title: 'Review your latest ranking',
+          description: `${latestAttempt.quizzes?.title || 'Your latest quiz'} is complete. Check where you stand.`,
+          href: `/employee/quizzes/${latestAttempt.quiz_id}/leaderboard`,
+          cta: 'View leaderboard',
+          icon: Trophy,
+          tone: 'amber',
+        }
+      : {
+          title: 'No quiz assigned yet',
+          description: 'Your manager has not assigned a quiz. Check back later or explore your badges.',
+          href: '/employee/badges',
+          cta: 'View badges',
+          icon: Award,
+          tone: 'pink',
+        }
 
   const statCards = [
     { title: 'Total Points', value: stats?.stats?.total_points || 0, suffix: '', icon: Star, color: 'text-amber-600', bg: 'bg-amber-50', iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500' },
@@ -82,6 +113,37 @@ export default async function EmployeeDashboard() {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Next best step */}
+      <div className="rounded-2xl bg-white border border-border/60 shadow-sm overflow-hidden">
+        <div className="p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
+              nextAction.tone === 'blue' ? 'bg-blue-50 text-blue-600'
+              : nextAction.tone === 'amber' ? 'bg-amber-50 text-amber-600'
+              : 'bg-pink-50 text-pink-600'
+            }`}>
+              <nextAction.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Next Best Step</p>
+              <h2 className="font-bold text-lg">{nextAction.title}</h2>
+              <p className="text-sm text-muted-foreground mt-1">{nextAction.description}</p>
+            </div>
+          </div>
+          <Button className="rounded-xl shrink-0" asChild>
+            <Link href={nextAction.href}>
+              {nextAction.cta} <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+        {completedQuizzes.length > 0 && (
+          <div className="border-t border-border/50 bg-muted/20 px-5 py-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+            You can revisit leaderboards for {completedQuizzes.length} completed quiz{completedQuizzes.length === 1 ? '' : 'zes'} anytime.
+          </div>
+        )}
       </div>
 
       {/* Quick nav cards */}
@@ -155,16 +217,26 @@ export default async function EmployeeDashboard() {
           </div>
           <div className="divide-y divide-border/40">
             {stats.recentAttempts.slice(0, 5).map((attempt: any) => (
-              <div key={attempt.id} className="flex items-center justify-between px-6 py-4">
+              <div key={attempt.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium text-sm">{attempt.quizzes?.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{attempt.quizzes?.topic}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                   <span className="text-xs text-muted-foreground">{Math.floor(attempt.time_taken_seconds / 60)}m {attempt.time_taken_seconds % 60}s</span>
                   <span className={`text-sm font-bold px-2.5 py-1 rounded-lg ${attempt.score >= 70 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                     {attempt.score}%
                   </span>
+                  <Button variant="outline" size="sm" className="h-8 rounded-xl text-xs" asChild>
+                    <Link href={`/employee/quizzes/${attempt.quiz_id}/results`}>
+                      Results
+                    </Link>
+                  </Button>
+                  <Button size="sm" className="h-8 rounded-xl text-xs" asChild>
+                    <Link href={`/employee/quizzes/${attempt.quiz_id}/leaderboard`}>
+                      Leaderboard
+                    </Link>
+                  </Button>
                 </div>
               </div>
             ))}

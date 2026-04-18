@@ -45,11 +45,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Clean up the extracted text
-    extractedText = extractedText
-      .replace(/\r\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim()
+    extractedText = cleanExtractedText(extractedText)
 
     if (!extractedText || extractedText.length < 50) {
       return NextResponse.json({ 
@@ -61,6 +57,7 @@ export async function POST(request: NextRequest) {
       text: extractedText,
       wordCount: extractedText.split(/\s+/).length,
       charCount: extractedText.length,
+      lineCount: extractedText.split('\n').filter(Boolean).length,
     })
 
   } catch (error: any) {
@@ -69,4 +66,35 @@ export async function POST(request: NextRequest) {
       error: `Failed to extract content: ${error.message}` 
     }, { status: 500 })
   }
+}
+
+function cleanExtractedText(text: string) {
+  const normalized = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/-\n(?=[a-z])/g, '')
+    .replace(/[ \t]*\n[ \t]*/g, '\n')
+
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+
+  const repeated = new Map<string, number>()
+  for (const line of lines) {
+    repeated.set(line, (repeated.get(line) || 0) + 1)
+  }
+
+  return lines
+    .filter((line) => {
+      const lower = line.toLowerCase()
+      if (/^page\s+\d+(\s+of\s+\d+)?$/i.test(line)) return false
+      if (/^\d+$/.test(line)) return false
+      if ((repeated.get(line) || 0) > 2 && line.length < 80) return false
+      return !['confidential', 'draft'].includes(lower)
+    })
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }

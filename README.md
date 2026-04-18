@@ -1,221 +1,142 @@
-# 🌟 SkillTest 🚀
+# SkillTest
 
-**Gamified Employee Assessment Platform** 🎮✨
+Gamified employee assessment platform for managers and employees.
 
-> A production-ready, scalable employee assessment platform for 1000+ concurrent users — 🤖 AI-powered quiz generation, 👨‍💼 manager-controlled assignments, 🏆 gamification, 📈 real-time analytics, and a polished professional UI. 🎨
+SkillTest helps managers create quizzes, assign them to employees, track completion, export ranked results, and keep employees motivated with points, streaks, badges, and live leaderboards.
 
-![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=next.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-38BDF8?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
-![Status](https://img.shields.io/badge/Status-Production_Ready-success?style=for-the-badge)
+## Highlights
 
----
+- Manager dashboard with action items and operational health checks
+- Full quiz CRUD with activate/deactivate, edit, assign, export, and delete actions
+- Per-quiz and cumulative leaderboards with Excel downloads
+- Employee dashboard with next-best-step guidance
+- Real-time leaderboard refresh after quiz completion
+- Employee import from Excel/CSV with validation and duplicate checks
+- Question import from Excel/CSV with strict parsing and answer validation
+- AI question generation from topics or uploaded content
+- AI-generated answer options are randomized and balanced across A/B/C/D
+- Forgot-password and reset-password flow through Supabase Auth
+- Gamification with points, streaks, badges, podiums, and ranking views
 
-## 📑 Table of Contents
+## Tech Stack
 
-- [✨ Features](#-features)
-- [🎨 UI & Design System](#-ui--design-system)
-- [🛠️ Tech Stack](#️-tech-stack)
-- [📂 Project Structure](#-project-structure)
-- [🚀 Getting Started](#-getting-started)
-- [🗄️ Database Schema](#️-database-schema)
-- [🔄 Quiz Assignment Flow](#-quiz-assignment-flow)
-- [🤖 AI Question Generation](#-ai-question-generation)
-- [🛡️ Security & Scalability](#️-security--scalability)
-- [🎮 Gamification System](#-gamification-system)
-- [🔑 Environment Variables](#-environment-variables)
-- [📜 NPM Scripts](#-npm-scripts)
-- [🔧 Troubleshooting](#-troubleshooting)
-- [📄 License](#-license)
+| Area | Technology |
+| --- | --- |
+| Framework | Next.js 16 App Router |
+| Language | TypeScript |
+| UI | Tailwind CSS, Radix UI, shadcn-style components |
+| Auth | Supabase Auth |
+| Database | Supabase Postgres with RLS |
+| Excel | SheetJS / xlsx |
+| AI | OpenAI GPT-4o-mini, Google Gemini fallback |
+| Analytics | Vercel Analytics |
 
----
+## Manager Features
 
-## ✨ Features
+### Dashboard
 
-### 👔 Manager Portal — `/manager`
+The manager dashboard includes a practical Action Center that flags:
 
-| Feature | Description |
-|:--------|:------------|
-| **📊 Dashboard** | Real-time overview with colour-coded stat cards (blue/green/purple/orange) |
-| **📝 Quiz Creation** | Topic, difficulty, time limit, passing score, feedback URL |
-| **🤖 AI Question Generation** | GPT-4o-mini -> Gemini 1.5 Flash -> Template engine fallback |
-| **✏️ Quiz Editor** | Full inline editing — add/remove/reorder questions |
-| **✅ Quiz Toggle** | Activate / deactivate quizzes with one click |
-| **👥 Employee Management** | All employees with colour-coded stats, domain, activity |
-| **📁 Excel Import** | Bulk import employees via Excel/CSV, auto-categorised by domain |
-| **📥 Quiz Import** | Import questions from Excel with template download |
-| **🎯 Quiz Assignment** | Assign quizzes to specific employees |
-| **🏆 Leaderboard** | Per-quiz and cumulative rankings with points, score, time |
-| **📈 Reports** | Full Excel report — Summary, Quiz Performance, All Results, Employee Stats |
-| **🧠 AI Analytics** | AI-powered insights from uploaded assessment data |
-| **⚙️ Settings** | Profile management |
+- quizzes with too few questions
+- draft quizzes ready to activate
+- active quizzes with no completions
+- employees who have not engaged yet
+- low-score coaching opportunities
 
-### 🧑‍💻 Employee Portal — `/employee`
+### Quiz Management
 
-| Feature | Description |
-|:--------|:------------|
-| **🏠 Dashboard** | Points, streak, quizzes done, average score, badges |
-| **⚡ Live Stats in Nav** | Points and streak visible in the top nav bar at all times |
-| **📋 Assigned Quizzes** | Only manager-assigned quizzes are visible (zero by default) |
-| **⏱️ Quiz Player** | Timer, progress bar, streak counter, instant answer feedback |
-| **🏅 Leaderboard** | Gold-amber podium for top 3, full ranking with streak pills |
-| **🎖️ Badges** | Earned (purple gradient) and locked (dashed border) badge grid |
+Managers can:
 
-#### 🎮 Quiz Player Experience
+- create quizzes
+- edit quiz details and questions
+- import questions from spreadsheet files
+- generate questions with AI
+- activate or deactivate quizzes
+- assign quizzes to employees
+- view quiz details and completion data
+- export ranked quiz results
+- delete quizzes
 
-```
-⏱️ Countdown timer     — red pulse animation when < 60s remaining
-📊 Progress bar        — questions answered / total
-🔥 Streak counter      — consecutive correct answers
-💡 Instant feedback    — correct/incorrect highlighting + explanation
-🚀 Auto-submit         — submits automatically when timer expires
-🔀 Randomised order    — shuffled questions on every attempt
-```
+Each quiz card also shows readiness guidance such as:
 
-### 🔐 Authentication
+- Needs more questions
+- Ready to activate
+- Needs assignment
+- Waiting for completions
+- Collecting results
 
-| Feature | Description |
-|:--------|:------------|
-| 📧 Email/Password Sign-Up | Employee-only self-registration |
-| 🔑 Password Sign-In | Secure password-based authentication |
-| 🛡️ Server-Side Role Enforcement | Role always set to `employee` on sign-up — cannot be bypassed |
-| 🔒 Supabase Auth + RLS | Row Level Security on every table |
-| 🛑 Protected Routes | Middleware-based session validation |
-| 🔀 Auto-Redirect | Employees -> `/employee`, Managers -> `/manager` after login |
+### Reports And Exports
 
----
+Managers can export:
 
-## 🎨 UI & Design System
+- individual quiz results
+- cumulative leaderboard results
+- full reports
+- employee reports
 
-> **Redesigned April 2026** — professional blue-indigo colour system for daily non-technical users. 💎
+Quiz exports include ranked results with employee name, email, score, answers, points, and completion time.
 
-### 🌈 Colour Palette
+### Employee Management
 
-| Token | Colour | Usage |
-|:------|:-------|:------|
-| `--primary` | 🔵 Blue `oklch(0.45 0.18 255)` | Buttons, links, active states |
-| `--sidebar` | 🌌 Deep Navy `oklch(0.18 0.04 255)` | Manager sidebar |
-| `--background` | ☁️ Soft Blue-White | Page backgrounds |
-| `--destructive` | 🔴 Red | Delete actions, errors |
-| Stat cards | 🔵 / 🟢 / 🟡 / 🟣 / 🟠 | One colour per metric type |
+Managers can:
 
-### 👔 Manager Portal Layout
+- add employees
+- edit employee details
+- delete employees
+- import employees from Excel/CSV
+- download an employee import template
+- export employee data and performance stats
 
-- 🌌 Deep navy collapsible sidebar — blue active indicators, dot marker, role label under logo
-- ☁️ White top header — backdrop blur, search bar, notification bell with red dot, avatar with role label and dropdown
-- 📊 Colour-coded stat cards — blue (quizzes), green (attempts), purple (scores), orange (employees)
-- 🌠 Blue-to-indigo hero welcome banner with **Create Quiz** + **AI Tools** CTA buttons
+The importer validates required fields, detects duplicate emails, accepts common column names, and reports skipped rows clearly.
 
-### 🧑‍💻 Employee Portal Layout
+## Employee Features
 
-- 🔝 Top nav bar — live **Points** and **Streak** pills always visible alongside nav links
-- 🌊 Blue gradient welcome banner with direct **Take a Quiz** CTA button
-- 📝 Quiz cards colour-coded by status — yellow border (in-progress), green border (completed), score badge on completed cards
-- 🏆 Leaderboard — gold-amber podium card for top 3, blue "You" highlight pill, coloured points/streak pills per row
-- 🏅 Badges — earned shown with purple-indigo gradient cards, locked with dashed border + fade effect
+Employees can:
 
-### ♿ Accessibility
+- view assigned quizzes only
+- continue in-progress quizzes
+- complete timed quizzes
+- see instant feedback
+- view quiz results
+- view per-quiz leaderboards
+- view cumulative leaderboard
+- track points, streaks, average score, and completed quizzes
+- earn badges
 
-- `focus-visible` outlines on all interactive elements
-- WCAG AA contrast ratios throughout
-- Tailwind v4 CSS linter warnings suppressed via `.vscode/settings.json`
+The employee dashboard includes a Next Best Step card that guides the user to continue a quiz, start a quiz, review leaderboard results, or check badges.
 
----
+## AI And Import Features
 
-## 🛠️ Tech Stack
+SkillTest supports:
 
-| Layer | Technology | Purpose |
-|:------|:-----------|:--------|
-| ⚡ Framework | Next.js 16 (App Router + Turbopack) | Server components, streaming, server actions |
-| 🦕 Language | TypeScript 5 | Full type safety |
-| 🎨 Styling | Tailwind CSS 4 + tw-animate-css | Utility-first CSS + animations |
-| 🧩 Components | Radix UI + shadcn-style primitives | 50+ accessible UI components |
-| 🔤 Typography | Instrument Sans, Instrument Serif, JetBrains Mono | Google Fonts via next/font |
-| 🖼️ Icons | Lucide React | Consistent SVG icons |
-| 🗄️ Database | Supabase (PostgreSQL + RLS) | Managed Postgres with row-level security |
-| 🔐 Auth | Supabase Auth | Password-based auth, session management |
-| ✅ Validation | Zod | Runtime schema validation on all inputs |
-| 📊 Charts | Recharts | Data visualisation in reports |
-| 📁 Excel | SheetJS (xlsx) | Import employees/questions, export reports |
-| 🤖 AI | OpenAI GPT-4o-mini / Google Gemini 1.5 Flash | AI-powered question generation & analytics |
-| 🧊 3D | Three.js + @react-three/fiber | Landing page 3D animations |
-| 📈 Analytics | Vercel Analytics | Production usage tracking |
-| 🔄 State | React 19 (useTransition, server actions) | Client state management |
-| 📦 Package Manager | pnpm | Fast, disk-efficient |
+- topic-based AI question generation
+- content-based AI generation from PDF, DOCX, TXT, or pasted text
+- direct spreadsheet question import
+- improved text extraction cleanup for uploaded documents
+- strict question parsing with all four options required
+- correct answer validation as A/B/C/D or exact option text
+- duplicate question detection
+- randomized saved option order so correct answers do not follow a visible pattern
 
----
+## Authentication
 
-## 📂 Project Structure
+Authentication uses Supabase Auth.
 
-```
-app/
-  auth/          login, sign-up, callback, error
-  employee/      layout (top nav + live streak/points), dashboard,
-                 quizzes, leaderboard, badges
-  manager/       layout (navy sidebar + white header + role guard),
-                 dashboard, quizzes, employees, leaderboard,
-                 analytics, reports, settings
-  api/           generate-questions, generate-from-content,
-                 extract-content, leaderboard, reports/download,
-                 assessment-import, ai-chat, health
+Supported flows:
 
-components/
-  landing/       16 marketing page sections
-  manager/       sidebar, header, quiz-editor, quiz-importer,
-                 quiz-toggle-active, quiz-delete-button,
-                 quiz-assignment-manager, employee-importer,
-                 assessment-analyzer, content-question-generator,
-                 profile-form
-  ui/            50+ shadcn-style primitives
+- email/password sign up
+- email/password sign in
+- forgot password
+- reset password through Supabase recovery callback
+- role-based redirects for employee and manager dashboards
 
-lib/
-  actions/       server actions (auth, quiz, employee, manager)
-  supabase/      server + client + admin clients
-  types/         TypeScript types and DB schema
-  utils.ts       Utility functions
+## Database Setup
 
-scripts/         SQL migration scripts 001-012
-.vscode/         settings.json — suppresses Tailwind v4 CSS linter warnings
-```
+Run the SQL scripts in `scripts/` in order inside the Supabase SQL editor.
 
----
+Core setup:
 
-## 🚀 Getting Started
-
-### 📋 Prerequisites
-
-- Node.js 20+
-- pnpm (`npm install -g pnpm`)
-- A [Supabase](https://supabase.com) project
-
-### 1️⃣ Clone
-
-```bash
-git clone https://github.com/itslaks/SkillTest_AI.git
-cd SkillTest_AI
-pnpm install
-```
-
-### 2️⃣ Environment Variables — `.env.local`
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-
-OPENAI_API_KEY=your_openai_key      # optional but recommended
-GEMINI_API_KEY=your_gemini_key      # optional fallback
-
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-### 3️⃣ Database Setup
-
-Run these SQL scripts **in order** in your Supabase SQL editor:
-
-```
+```text
 scripts/001_create_profiles.sql
 scripts/002_create_quizzes.sql
 scripts/003_create_questions.sql
@@ -228,153 +149,108 @@ scripts/009_create_quiz_assignments.sql
 scripts/010_fix_leaderboard_rls.sql
 scripts/011_fix_manager_rls.sql
 scripts/012_create_assessment_imports.sql
+scripts/013_fix_rbac_trigger.sql
+scripts/014_add_status_to_quizzes.sql
+scripts/015_remove_question_approval_system.sql
+scripts/016_safe_remove_approval_system.sql
+scripts/017_enhanced_user_stats_trigger.sql
+scripts/018_add_updated_at_to_questions.sql
+scripts/019_more_meaningful_badges.sql
 ```
 
-### 4️⃣ Create a Manager Account
+`scripts/019_more_meaningful_badges.sql` adds additional badges and expands badge-awarding rules.
+
+## Environment Variables
+
+Create `.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+OPENAI_API_KEY=your_openai_key
+GOOGLE_GEMINI_API_KEY=your_gemini_key
+
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+AI keys are optional, but at least one is required for AI question generation from content.
+
+## Development
+
+Install dependencies:
 
 ```bash
-node scripts/seed_admin.js
+npm install
 ```
 
-### 5️⃣ Start Development
+Start the development server:
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
-Open http://localhost:3000 🎉
+Open:
 
----
-
-## 🗄️ Database Schema
-
-```
-profiles           role, employee_id, department, domain
-quizzes            title, topic, difficulty, time_limit, passing_score
-questions          MCQ options linked to quizzes
-quiz_attempts      score, answers, time_taken, points_earned
-quiz_assignments   manager-to-employee quiz links
-user_stats         total_points, streak, tests_completed
-user_badges        earned badge records
-badges             name, description, points, criteria
-assessment_imports AI import history
+```text
+http://localhost:3000
 ```
 
----
-
-## 🔄 Quiz Assignment Flow
-
-```
-👨‍💼 Manager creates quiz
-       |
-👥 Manager assigns quiz to employee(s) via Employees page
-       |
-🧑‍💻 Employee logs in — sees only their assigned quizzes
-       |
-📝 Employee completes quiz — points, badges, streak updated automatically
-       |
-📊 Manager views results in Leaderboard / Reports
-```
-
----
-
-## 🤖 AI Question Generation
-
-Three-tier fallback system:
-
-```
-1. 🧠 OpenAI GPT-4o-mini       Primary (fastest, best quality)
-        |
-        v (if unavailable or quota exceeded)
-2. ⚡ Google Gemini 1.5 Flash  Secondary fallback
-        |
-        v (if unavailable)
-3. 📝 Template Engine           Always available — no API key needed
-```
-
-**Generation modes:**
-
-- **🎯 Topic-based** — generate questions from a subject/topic name
-- **📄 Content-based** — upload PDF/DOCX or paste text, AI extracts questions
-- **📊 Excel import** — bulk import pre-written questions from `.xlsx`
-
----
-
-## 🛡️ Security & Scalability
-
-| Concern | Implementation |
-|:--------|:--------------|
-| 🔐 Authentication | Supabase Auth with JWT tokens |
-| 🛡️ Authorisation | Row Level Security (RLS) on every table |
-| 👮 Role Enforcement | Server-side role check — cannot be bypassed via client |
-| ✅ Input Validation | Zod schemas on all server actions and API routes |
-| 🚦 Rate Limiting | Vercel Edge middleware |
-| 🛡️ XSS Prevention | React's built-in escaping + sanitised inputs |
-| 💉 SQL Injection | Parameterised queries via Supabase client |
-| 🤫 Secrets | Environment variables only — never exposed to client |
-| 👑 Admin Operations | Service role key used server-side only for leaderboard aggregation |
-
----
-
-## 🎮 Gamification System
-
-| Element | How It Works |
-|:--------|:------------|
-| ⭐️ Points | Earned per correct answer — visible live in the employee nav bar |
-| 🔥 Streak | Days in a row with at least one quiz attempt |
-| 🏅 Badges | Auto-awarded by database triggers on milestones |
-| 🏆 Leaderboard | Ranked by total points — gold podium display for top 3 |
-| 📈 Progress | Dashboard shows cumulative stats across all attempts |
-
----
-
-## 🔑 Environment Variables
-
-| Variable | Required | Description |
-|:---------|:---------|:------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Service role key (server-only) |
-| `OPENAI_API_KEY` | Optional | OpenAI key for primary AI generation |
-| `GEMINI_API_KEY` | Optional | Google Gemini key for fallback AI |
-| `NEXT_PUBLIC_APP_URL` | Yes | Base URL of your deployment |
-
----
-
-## 📜 NPM Scripts
+Build:
 
 ```bash
-pnpm dev      # 🚀 Start dev server with Turbopack
-pnpm build    # 🏗️ Production build
-pnpm start    # 🏃 Start production server
-pnpm lint     # 🧹 Run ESLint
+npm run build
 ```
 
----
+Type check:
 
-## 🔧 Troubleshooting
+```bash
+npx tsc --noEmit --pretty false
+```
 
-**👀 Employees see no quizzes**
-Quizzes must be explicitly assigned via the Employees page in the Manager portal.
+## Useful Routes
 
-**❌ AI question generation fails**
-Check that `OPENAI_API_KEY` or `GEMINI_API_KEY` is set. The template engine is the last resort fallback.
+| Route | Purpose |
+| --- | --- |
+| `/` | Landing page |
+| `/auth/login` | Login |
+| `/auth/sign-up` | Employee sign up |
+| `/auth/reset-password` | Request reset link |
+| `/auth/update-password` | Set new password |
+| `/manager` | Manager dashboard |
+| `/manager/quizzes` | Quiz CRUD and readiness |
+| `/manager/employees` | Employee CRUD and imports |
+| `/manager/leaderboard` | Manager leaderboards and exports |
+| `/manager/analytics` | AI analytics and per-quiz shortcuts |
+| `/manager/reports` | Reports and exports |
+| `/employee` | Employee dashboard |
+| `/employee/quizzes` | Assigned quizzes |
+| `/employee/leaderboard` | Employee cumulative leaderboard |
+| `/employee/badges` | Badges |
 
-**📭 Leaderboard shows no data**
-Run `scripts/010_fix_leaderboard_rls.sql` in the Supabase SQL editor.
+## Troubleshooting
 
-**⚠️ VS Code CSS warnings** (`@apply`, `@theme`, `@custom-variant`)
-These are valid Tailwind v4 syntax — not errors. The `.vscode/settings.json` in this repo already suppresses them.
+### Employees do not see quizzes
 
-**🔒 Manager cannot see employee attempts**
-Run `scripts/011_fix_manager_rls.sql` to fix RLS policies.
+Quizzes must be assigned by a manager before employees can view them.
 
----
+### Leaderboards do not update live
 
-## 📄 License
+Enable Supabase Realtime for the relevant tables, especially `quiz_attempts` and `user_stats`.
 
-MIT — free to use, modify, and distribute. 🎁
+### Manager cannot export or view data
 
----
+Confirm `SUPABASE_SERVICE_ROLE_KEY` is set and the RLS fix scripts have been run.
 
-*Built with Next.js ⚛️, Supabase ⚡, and Tailwind CSS 🎨*
+### New badges do not appear
+
+Run `scripts/019_more_meaningful_badges.sql` in Supabase.
+
+### Password reset redirects to login
+
+Confirm `NEXT_PUBLIC_APP_URL` points to the same origin used in the reset email.
+
+## License
+
+MIT

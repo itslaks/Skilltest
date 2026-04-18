@@ -3,10 +3,11 @@
  */
 
 import { createClient } from "@/lib/supabase/server"
+import type { UserRole } from "@/lib/types/database"
 import { redirect } from "next/navigation"
 import { NextResponse } from "next/server"
 
-export type RBACRole = "employee" | "manager" | "admin"
+export type RBACRole = UserRole
 
 export async function getCurrentUserRole(): Promise<{ userId: string; role: RBACRole } | null> {
   const supabase = await createClient()

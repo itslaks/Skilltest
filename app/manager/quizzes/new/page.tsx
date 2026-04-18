@@ -17,7 +17,7 @@ import {
   Info, XCircle, GraduationCap, Settings2, FileUp,
 } from 'lucide-react'
 import Link from 'next/link'
-import type { DifficultyLevel } from '@/lib/types/database'
+import type { DifficultyLevel, ParsedQuestion } from '@/lib/types/database'
 import { cn } from '@/lib/utils'
 import * as XLSX from 'xlsx'
 import { AISetupInstructions } from '@/components/manager/ai-setup-instructions'
@@ -58,12 +58,6 @@ function getDistribution(primary: DifficultyLevel, total: number) {
   }
   for (const d of ALL_DIFFICULTIES) if (!(d in dist)) dist[d] = 0
   return dist
-}
-
-interface ParsedQuestion {
-  question_text: string; option_a: string; option_b: string;
-  option_c: string; option_d: string; correct_answer: string;
-  difficulty?: DifficultyLevel; explanation?: string
 }
 
 export default function NewQuizPage() {

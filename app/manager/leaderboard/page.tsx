@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { RealtimeManagerLeaderboard } from '@/components/manager/realtime-manager-leaderboard'
 import { QuizCompletionDetails } from '@/components/manager/quiz-completion-details'
+import { buildCumulativeLeaderboard, type CumulativeAttempt } from '@/lib/leaderboard'
 import Link from 'next/link'
 import { 
   Trophy, Medal, Crown, Users, TrendingUp, Clock, 
@@ -43,65 +44,7 @@ export default async function ManagerLeaderboardPage() {
     .eq('status', 'completed')
     .order('points_earned', { ascending: false })
 
-  // Aggregate by user for cumulative leaderboard
-  const userAggregates = new Map<string, {
-    user_id: string
-    full_name: string
-    email: string
-    employee_id: string | null
-    department: string | null
-    total_points: number
-    total_quizzes: number
-    avg_score: number
-    total_correct: number
-    total_questions: number
-    total_time: number
-  }>()
-
-  globalLeaderboard?.forEach((attempt: any) => {
-    const userId = attempt.user_id
-    const existing = userAggregates.get(userId)
-    
-    if (existing) {
-      existing.total_points += attempt.points_earned || 0
-      existing.total_quizzes += 1
-      existing.total_correct += attempt.correct_answers || 0
-      existing.total_questions += attempt.total_questions || 0
-      existing.total_time += attempt.time_taken_seconds || 0
-      existing.avg_score = existing.total_questions > 0 
-        ? Math.round((existing.total_correct / existing.total_questions) * 100) 
-        : 0
-    } else {
-      userAggregates.set(userId, {
-        user_id: userId,
-        full_name: attempt.profiles?.full_name || 'Unknown',
-        email: attempt.profiles?.email || '',
-        employee_id: attempt.profiles?.employee_id || null,
-        department: attempt.profiles?.department || null,
-        total_points: attempt.points_earned || 0,
-        total_quizzes: 1,
-        total_correct: attempt.correct_answers || 0,
-        total_questions: attempt.total_questions || 0,
-        total_time: attempt.time_taken_seconds || 0,
-        avg_score: attempt.score || 0,
-      })
-    }
-  })
-
-  const cumulativeLeaderboard = Array.from(userAggregates.values())
-    .sort((a, b) => {
-      // Primary sort: by total points (descending)
-      if (b.total_points !== a.total_points) {
-        return b.total_points - a.total_points
-      }
-      // Secondary sort: by average score (descending)
-      if (b.avg_score !== a.avg_score) {
-        return b.avg_score - a.avg_score
-      }
-      // Tertiary sort: by total time (ascending - faster is better)
-      return a.total_time - b.total_time
-    })
-    .map((entry, index) => ({ ...entry, rank: index + 1 }))
+  const cumulativeLeaderboard = buildCumulativeLeaderboard(globalLeaderboard as CumulativeAttempt[])
 
   // Get per-quiz leaderboards with proper tiebreaking
   const quizLeaderboards: Record<string, any[]> = {}
@@ -183,13 +126,27 @@ export default async function ManagerLeaderboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Crown className="h-7 w-7 text-yellow-500" />
             Leaderboards
           </h1>
           <p className="text-muted-foreground mt-1">Track employee performance across all assessments</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <a href="/api/leaderboard/cumulative/download">
+              <Download className="mr-2 h-4 w-4" />
+              Download Cumulative
+            </a>
+          </Button>
+          <Button className="bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700" asChild>
+            <a href="/api/reports/download">
+              <Download className="mr-2 h-4 w-4" />
+              Download Full Report
+            </a>
+          </Button>
         </div>
       </div>
 
@@ -329,14 +286,12 @@ export default async function ManagerLeaderboardPage() {
                   Overall employee performance across all quizzes
                 </CardDescription>
               </div>
-              {cumulativeLeaderboard.length > 0 && (
-                <Button variant="outline" size="sm" asChild>
-                  <a href="/api/leaderboard/cumulative/download">
-                    <Download className="mr-2 h-4 w-4" />
-                    Export
-                  </a>
-                </Button>
-              )}
+              <Button variant="outline" size="sm" asChild>
+                <a href="/api/leaderboard/cumulative/download">
+                  <Download className="mr-2 h-4 w-4" />
+                  Export
+                </a>
+              </Button>
             </CardHeader>
             <CardContent>
               <RealtimeManagerLeaderboard 
@@ -371,7 +326,7 @@ export default async function ManagerLeaderboardPage() {
                 department: c.profiles.department
               }
             })) || []}
-            onExport={() => window.open('/api/leaderboard/cumulative/download', '_blank')}
+            exportHref="/api/leaderboard/cumulative/download"
           />
         </TabsContent>
 
@@ -392,14 +347,12 @@ export default async function ManagerLeaderboardPage() {
                     </Badge>
                   </CardDescription>
                 </div>
-                {quizLeaderboards[quiz.id]?.length > 0 && (
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={`/api/leaderboard/${quiz.id}/download`}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Export
-                    </a>
-                  </Button>
-                )}
+                <Button variant="outline" size="sm" asChild>
+                  <a href={`/api/leaderboard/${quiz.id}/download`}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Results
+                  </a>
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">

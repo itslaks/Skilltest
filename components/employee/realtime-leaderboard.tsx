@@ -28,6 +28,8 @@ export function RealtimeLeaderboard({ initialData, currentUserId }: RealtimeLead
 
   useEffect(() => {
     const supabase = createClient()
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null
+    let flashTimer: ReturnType<typeof setTimeout> | null = null
 
     const refreshLeaderboard = async () => {
       try {
@@ -44,42 +46,46 @@ export function RealtimeLeaderboard({ initialData, currentUserId }: RealtimeLead
         }
 
         if (data) {
-          setLeaderboard(data as any)
+          setLeaderboard(data as LeaderboardEntry[])
           setLastUpdated(new Date())
           setFlash(true)
-          setTimeout(() => setFlash(false), 1000)
+          if (flashTimer) clearTimeout(flashTimer)
+          flashTimer = setTimeout(() => setFlash(false), 1000)
         }
       } catch (error) {
         console.error('Leaderboard refresh failed:', error)
       }
     }
 
-    // Listen to both user_stats and quiz_attempts changes for immediate updates
+    const scheduleRefresh = (delay = 300) => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(refreshLeaderboard, delay)
+    }
+
     const channel = supabase
       .channel('realtime-leaderboard')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'user_stats' },
-        async () => {
-          console.log('User stats changed - refreshing leaderboard')
-          await refreshLeaderboard()
-        }
+        () => scheduleRefresh()
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'quiz_attempts' },
-        async (payload) => {
-          // Only refresh when quiz is completed
-          if (payload.new?.status === 'completed' && payload.old?.status !== 'completed') {
-            console.log('Quiz completed - refreshing leaderboard')
-            // Add a small delay to ensure triggers have fired
-            setTimeout(refreshLeaderboard, 500)
+        { event: '*', schema: 'public', table: 'quiz_attempts' },
+        (payload) => {
+          const newStatus = 'status' in payload.new ? payload.new.status : null
+          const oldStatus = 'status' in payload.old ? payload.old.status : null
+
+          if (newStatus === 'completed' && oldStatus !== 'completed') {
+            scheduleRefresh(600)
           }
         }
       )
       .subscribe()
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      if (flashTimer) clearTimeout(flashTimer)
       supabase.removeChannel(channel)
     }
   }, [])
