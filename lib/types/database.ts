@@ -1,4 +1,4 @@
-export type UserRole = 'employee' | 'manager' | 'admin'
+export type UserRole = 'employee' | 'trainer' | 'training_coordinator' | 'manager' | 'admin'
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'advanced' | 'hardcore'
 
@@ -106,8 +106,8 @@ export interface QuizAssignment {
   due_date: string | null
 }
 
-export type TrainingBatchStatus = 'planned' | 'active' | 'at_risk' | 'completed'
-export type BatchMemberStatus = 'invited' | 'active' | 'completed' | 'dropped'
+export type TrainingBatchStatus = 'planned' | 'running' | 'completed' | 'closed' | 'active' | 'at_risk'
+export type BatchMemberStatus = 'invited' | 'active' | 'completed' | 'dropped' | 'discontinued' | 'not_cleared' | 'offered' | 'onboarded'
 export type BatchSupportStatus = 'on_track' | 'needs_support' | 'critical'
 export type SessionMode = 'virtual' | 'classroom' | 'hybrid'
 export type SessionStatus = 'scheduled' | 'completed' | 'cancelled'
@@ -200,8 +200,17 @@ export interface TrainingFeedback {
 export interface TrainingOpsSummary {
   totalBatches: number
   activeBatches: number
+  atRiskBatches: number
+  totalCandidates: number
+  discontinuedCandidates: number
+  notClearedCandidates: number
+  offeredCandidates: number
+  onboardedCandidates: number
+  remainingCandidates: number
   upcomingSessions: number
   attendanceRate: number
+  attendanceDueToday: number
+  absenceAlerts: number
   notificationsSent: number
   negativeFeedbackCount: number
 }

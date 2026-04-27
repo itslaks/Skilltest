@@ -34,11 +34,29 @@ function parseIds(values: FormDataEntryValue[]) {
     .filter(Boolean)
 }
 
+function normalizeBatchStatus(status: string): TrainingBatchStatus {
+  if (status === 'active') return 'running'
+  if (status === 'at_risk') return 'running'
+  if (status === 'closed') return 'closed'
+  if (status === 'completed') return 'completed'
+  return 'planned'
+}
+
+function isBatchRunning(status: string) {
+  return status === 'running' || status === 'active' || status === 'at_risk'
+}
+
+function attendanceCutoffFor(date: Date) {
+  const cutoff = new Date(date)
+  cutoff.setHours(10, 0, 0, 0)
+  return cutoff
+}
+
 export async function getTrainingOpsManagerData() {
   const { userId } = await requireManager()
   const admin = createAdminClient()
 
-  const [batchesRes, sessionsRes, trainersRes, employeesRes, notificationsRes, feedbackRes] = await Promise.all([
+  const [batchesRes, trainersRes, employeesRes] = await Promise.all([
     admin
       .from('training_batches')
       .select(`
@@ -48,60 +66,27 @@ export async function getTrainingOpsManagerData() {
         batch_members(count),
         training_sessions(count)
       `)
-      .eq('created_by', userId)
+      .or(`created_by.eq.${userId},coordinator_id.eq.${userId},trainer_id.eq.${userId}`)
       .order('created_at', { ascending: false }),
-    admin
-      .from('training_sessions')
-      .select(`
-        *,
-        batch:batch_id(id, title, domain, status),
-        trainer:trainer_id(id, full_name, email)
-      `)
-      .order('session_date', { ascending: true }),
     admin
       .from('profiles')
       .select('id, full_name, email, role, domain, department')
-      .in('role', ['manager', 'admin'])
+      .in('role', ['trainer', 'training_coordinator', 'manager', 'admin'])
       .order('full_name', { ascending: true }),
     admin
       .from('profiles')
       .select('id, full_name, email, domain, department, employee_id')
       .eq('role', 'employee')
       .order('full_name', { ascending: true }),
-    admin
-      .from('training_notifications')
-      .select(`
-        *,
-        batch:batch_id(id, title),
-        session:session_id(id, title, session_date),
-        recipient:recipient_user_id(id, full_name, email)
-      `)
-      .eq('created_by', userId)
-      .order('created_at', { ascending: false })
-      .limit(12),
-    admin
-      .from('training_feedback')
-      .select(`
-        *,
-        batch:batch_id(id, title),
-        session:session_id(id, title, session_date),
-        trainee:user_id(id, full_name, email)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(12),
   ])
 
   const batches = batchesRes.data || []
-  const sessions = sessionsRes.data || []
   const trainers = trainersRes.data || []
   const employees = employeesRes.data || []
-  const notifications = notificationsRes.data || []
-  const feedback = feedbackRes.data || []
 
   const batchIds = batches.map((batch: any) => batch.id)
-  const sessionIds = sessions.map((session: any) => session.id)
 
-  const [membersRes, attendanceRes, quizzesRes] = await Promise.all([
+  const [membersRes, sessionsRes, notificationsRes, feedbackRes, quizzesRes] = await Promise.all([
     batchIds.length
       ? admin
           .from('batch_members')
@@ -112,15 +97,42 @@ export async function getTrainingOpsManagerData() {
           `)
           .in('batch_id', batchIds)
       : Promise.resolve({ data: [] }),
-    sessionIds.length
+    batchIds.length
       ? admin
-          .from('session_attendance')
+          .from('training_sessions')
           .select(`
             *,
-            session:session_id(id, title, session_date, batch_id),
-            profile:user_id(id, full_name, email)
+            batch:batch_id(id, title, domain, status),
+            trainer:trainer_id(id, full_name, email)
           `)
-          .in('session_id', sessionIds)
+          .in('batch_id', batchIds)
+          .order('session_date', { ascending: true })
+      : Promise.resolve({ data: [] }),
+    batchIds.length
+      ? admin
+          .from('training_notifications')
+          .select(`
+            *,
+            batch:batch_id(id, title),
+            session:session_id(id, title, session_date),
+            recipient:recipient_user_id(id, full_name, email)
+          `)
+          .in('batch_id', batchIds)
+          .order('created_at', { ascending: false })
+          .limit(12)
+      : Promise.resolve({ data: [] }),
+    batchIds.length
+      ? admin
+          .from('training_feedback')
+          .select(`
+            *,
+            batch:batch_id(id, title),
+            session:session_id(id, title, session_date),
+            trainee:user_id(id, full_name, email)
+          `)
+          .in('batch_id', batchIds)
+          .order('created_at', { ascending: false })
+          .limit(12)
       : Promise.resolve({ data: [] }),
     batchIds.length
       ? admin
@@ -131,18 +143,78 @@ export async function getTrainingOpsManagerData() {
   ])
 
   const members = membersRes.data || []
-  const attendance = attendanceRes.data || []
+  const sessions = sessionsRes.data || []
+  const notifications = notificationsRes.data || []
+  const feedback = feedbackRes.data || []
   const quizzes = quizzesRes.data || []
+  const sessionIds = sessions.map((session: any) => session.id)
+  const attendanceRes = sessionIds.length
+    ? await admin
+        .from('session_attendance')
+        .select(`
+          *,
+          session:session_id(id, title, session_date, batch_id),
+          profile:user_id(id, full_name, email)
+        `)
+        .in('session_id', sessionIds)
+    : { data: [] }
+  const attendance = attendanceRes.data || []
 
   const totalAttendance = attendance.length
   const positiveAttendance = attendance.filter((entry: any) => entry.status === 'present' || entry.status === 'late').length
   const attendanceRate = totalAttendance > 0 ? Math.round((positiveAttendance / totalAttendance) * 100) : 0
+  const today = new Date()
+  const todayKey = today.toISOString().slice(0, 10)
+  const now = new Date()
+  const attendanceDueToday = sessions.filter((session: any) => {
+    if (!session.attendance_required || session.status === 'cancelled') return false
+    const sessionDate = new Date(session.session_date)
+    if (sessionDate.toISOString().slice(0, 10) !== todayKey) return false
+    if (now < attendanceCutoffFor(sessionDate)) return false
+    const records = attendance.filter((entry: any) => entry.session_id === session.id)
+    return records.length === 0 || records.every((entry: any) => entry.status === 'absent' && !entry.check_in_time)
+  }).length
+
+  const sessionsByBatch = new Map<string, any[]>()
+  for (const session of sessions) {
+    const items = sessionsByBatch.get(session.batch_id) || []
+    items.push(session)
+    sessionsByBatch.set(session.batch_id, items)
+  }
+
+  const attendanceBySessionUser = new Map<string, any>()
+  for (const entry of attendance) {
+    attendanceBySessionUser.set(`${entry.session_id}:${entry.user_id}`, entry)
+  }
+
+  let absenceAlerts = 0
+  for (const member of members) {
+    const batchSessions = (sessionsByBatch.get(member.batch_id) || [])
+      .filter((session: any) => session.attendance_required && session.status !== 'cancelled')
+      .sort((a: any, b: any) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())
+      .slice(0, 3)
+    if (batchSessions.length < 3) continue
+    const absentThreeDays = batchSessions.every((session: any) => {
+      const entry = attendanceBySessionUser.get(`${session.id}:${member.user_id}`)
+      return !entry || entry.status === 'absent'
+    })
+    if (absentThreeDays) absenceAlerts++
+  }
 
   const summary = {
     totalBatches: batches.length,
-    activeBatches: batches.filter((batch: any) => batch.status === 'active').length,
+    activeBatches: batches.filter((batch: any) => isBatchRunning(batch.status)).length,
+    atRiskBatches: batches.filter((batch: any) => batch.status === 'at_risk').length,
+    totalCandidates: members.length,
+    discontinuedCandidates: members.filter((member: any) => member.enrollment_status === 'discontinued' || member.enrollment_status === 'dropped').length,
+    notClearedCandidates: members.filter((member: any) => member.enrollment_status === 'not_cleared').length,
+    offeredCandidates: members.filter((member: any) => member.enrollment_status === 'offered').length,
+    onboardedCandidates: members.filter((member: any) => member.enrollment_status === 'onboarded' || member.enrollment_status === 'active').length,
+    remainingCandidates: members.filter((member: any) => ['invited', 'active', 'onboarded'].includes(member.enrollment_status)).length,
     upcomingSessions: sessions.filter((session: any) => session.status === 'scheduled').length,
     attendanceRate,
+    attendanceDueToday,
+    absenceAlerts,
     notificationsSent: notifications.filter((item: any) => item.delivery_status === 'sent').length,
     negativeFeedbackCount: feedback.filter((item: any) => item.sentiment === 'negative').length,
   }
@@ -267,7 +339,7 @@ export async function createTrainingBatch(formData: FormData): Promise<ApiRespon
   const priority = asOptionalString(formData.get('priority'))
   const supportModel = asOptionalString(formData.get('support_model'))
   const timezone = asOptionalString(formData.get('timezone'))
-  const status = (asRequiredString(formData.get('status'), 'planned') || 'planned') as TrainingBatchStatus
+  const status = normalizeBatchStatus(asRequiredString(formData.get('status'), 'planned') || 'planned')
   const startDate = asOptionalString(formData.get('start_date'))
   const endDate = asOptionalString(formData.get('end_date'))
   const trainerId = asOptionalString(formData.get('trainer_id'))
@@ -347,6 +419,51 @@ export async function createTrainingBatch(formData: FormData): Promise<ApiRespon
   revalidatePath('/employee/training')
 
   return { data: { id: batch.id } }
+}
+
+export async function updateTrainingBatchStatus(formData: FormData): Promise<ApiResponse<boolean>> {
+  const { userId } = await requireManager()
+  const admin = createAdminClient()
+
+  const batchId = asRequiredString(formData.get('batch_id'))
+  const status = normalizeBatchStatus(asRequiredString(formData.get('status'), 'planned') || 'planned')
+
+  if (!batchId) {
+    return { error: 'Batch is required.' }
+  }
+
+  const { data: currentBatch } = await admin
+    .from('training_batches')
+    .select('id, title, status')
+    .eq('id', batchId)
+    .single()
+
+  const { error } = await admin
+    .from('training_batches')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', batchId)
+    .or(`created_by.eq.${userId},coordinator_id.eq.${userId}`)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  await admin.from('training_notifications').insert({
+    batch_id: batchId,
+    title: `Batch status changed: ${currentBatch?.title || 'Training batch'}`,
+    message: `Lifecycle moved from ${(currentBatch?.status || 'planned').replace('_', ' ')} to ${status}.`,
+    audience: 'coordinators',
+    channel: 'in_app',
+    delivery_status: 'sent',
+    sent_at: new Date().toISOString(),
+    created_by: userId,
+  })
+
+  revalidatePath('/manager')
+  revalidatePath('/manager/operations')
+  revalidatePath('/employee')
+  revalidatePath('/employee/training')
+  return { data: true }
 }
 
 export async function createTrainingSession(formData: FormData): Promise<ApiResponse<{ id: string }>> {

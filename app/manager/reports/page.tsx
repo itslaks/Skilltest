@@ -4,6 +4,7 @@ import { getQuizStats, getQuizzes } from '@/lib/actions/quiz'
 import { getEmployees } from '@/lib/actions/manager'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   BarChart3,
   Users,
@@ -14,6 +15,7 @@ import {
   CheckCircle,
   XCircle,
   Target,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { DownloadReportButton } from '@/components/manager/download-report-button'
 import { QuickDeleteButton } from '@/components/manager/quick-delete-button'
@@ -79,7 +81,15 @@ export default async function ManagerReportsPage() {
           <h1 className="text-2xl md:text-3xl font-bold">Reports &amp; Analytics</h1>
           <p className="text-muted-foreground mt-1">Overview of quiz performance and employee engagement</p>
         </div>
-        <DownloadReportButton quizId="all" variant="all" />
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <a href="/api/reports/training-ops/download">
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Training Ops Export
+            </a>
+          </Button>
+          <DownloadReportButton quizId="all" variant="all" />
+        </div>
       </div>
 
       {/* Overview Cards */}

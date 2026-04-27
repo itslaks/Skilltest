@@ -38,7 +38,7 @@ export async function requireRole(...allowedRoles: RBACRole[]): Promise<{ userId
 }
 
 export async function requireManager(): Promise<{ userId: string; role: RBACRole }> {
-  return requireRole("manager", "admin")
+  return requireRole("training_coordinator", "manager", "admin")
 }
 
 export async function requireEmployee(): Promise<{ userId: string; role: RBACRole }> {
@@ -46,7 +46,7 @@ export async function requireEmployee(): Promise<{ userId: string; role: RBACRol
 }
 
 export function isManager(role: string | null | undefined): boolean {
-  return role === "manager" || role === "admin"
+  return role === "training_coordinator" || role === "manager" || role === "admin"
 }
 
 export async function requireManagerForApi(): Promise<{ userId: string; role: RBACRole } | NextResponse> {

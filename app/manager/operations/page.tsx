@@ -3,6 +3,7 @@ import {
   createTrainingNotification,
   createTrainingSession,
   getTrainingOpsManagerData,
+  updateTrainingBatchStatus,
   updateAttendanceStatus,
 } from '@/lib/actions/training'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,7 @@ import {
   BellRing,
   CalendarDays,
   ClipboardCheck,
+  FileSpreadsheet,
   MessageSquareQuote,
   ShieldAlert,
   Users,
@@ -38,12 +40,20 @@ async function updateAttendanceStatusAction(formData: FormData) {
   await updateAttendanceStatus(formData)
 }
 
+async function updateTrainingBatchStatusAction(formData: FormData) {
+  'use server'
+  await updateTrainingBatchStatus(formData)
+}
+
 function toneForBatchStatus(status: string) {
   switch (status) {
+    case 'running':
     case 'active':
       return 'bg-emerald-100 text-emerald-700'
     case 'completed':
       return 'bg-slate-100 text-slate-700'
+    case 'closed':
+      return 'bg-zinc-900 text-white'
     case 'at_risk':
       return 'bg-rose-100 text-rose-700'
     default:
@@ -110,23 +120,54 @@ export default async function ManagerOperationsPage() {
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-5xl">Operations control room for batches, trainers, attendance, and reminders</h1>
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-zinc-400">
-              This module closes the gap between assessment analytics and day-to-day training execution. Every operational requirement from the brief now has a visible workflow here.
+              Your daily control room for batch health, attendance discipline, trainer ownership, reminders, feedback, and exports.
             </p>
           </div>
           <div className="space-y-4">
             <DashboardSignalShowcase
               theme="dark"
               badge="Ops Control Deck"
-              title="Execution screens are polished and presentation-ready."
-              subtitle="Sessions, attendance, reminders, and feedback sit inside a clear visual system instead of plain utility layouts."
+              title="Today’s risks are visible before they become follow-ups."
+              subtitle="Cut-off misses, absence streaks, feedback risks, and batch progress are brought into one manager-friendly view."
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <StatCard label="Active batches" value={`${summary.activeBatches}`} icon={Users} />
               <StatCard label="Upcoming sessions" value={`${summary.upcomingSessions}`} icon={CalendarDays} />
               <StatCard label="Attendance health" value={`${summary.attendanceRate}%`} icon={ClipboardCheck} />
-              <StatCard label="Feedback risks" value={`${summary.negativeFeedbackCount}`} icon={ShieldAlert} />
+              <StatCard label="Action alerts" value={`${summary.attendanceDueToday + summary.absenceAlerts + summary.negativeFeedbackCount}`} icon={ShieldAlert} />
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <ActionTile
+          title="Attendance due"
+          value={`${summary.attendanceDueToday}`}
+          detail="Sessions past the 10:00 AM discipline window with no positive mark yet."
+          tone="rose"
+        />
+        <ActionTile
+          title="3-day absence risks"
+          value={`${summary.absenceAlerts}`}
+          detail="Learners absent across the latest three attendance-required sessions."
+          tone="amber"
+        />
+        <ActionTile
+          title="Candidates in training"
+          value={`${summary.remainingCandidates}`}
+          detail={`${summary.discontinuedCandidates} discontinued, ${summary.notClearedCandidates} not cleared, ${summary.offeredCandidates} offered/onboarded signals tracked.`}
+          tone="blue"
+        />
+        <div className="rounded-[1.5rem] border border-zinc-200 bg-black p-5 text-white shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <FileSpreadsheet className="h-4 w-4" />
+            Batch export
+          </div>
+          <p className="mt-3 text-sm text-zinc-400">Download batches, attendance, feedback, reminders, and linked assessments in one Excel workbook.</p>
+          <Button asChild className="mt-4 rounded-full bg-white text-black hover:bg-zinc-200">
+            <a href="/api/reports/training-ops/download">Export ops report</a>
+          </Button>
         </div>
       </section>
 
@@ -157,9 +198,9 @@ export default async function ManagerOperationsPage() {
                   <span className="font-medium">Status</span>
                   <select name="status" defaultValue="planned" className="h-11 w-full min-w-0 rounded-xl border border-zinc-200 px-3">
                     <option value="planned">Planned</option>
-                    <option value="active">Active</option>
-                    <option value="at_risk">At Risk</option>
+                    <option value="running">Running</option>
                     <option value="completed">Completed</option>
+                    <option value="closed">Closed</option>
                   </select>
                 </label>
                 <label className="grid gap-2 text-sm">
@@ -246,7 +287,7 @@ export default async function ManagerOperationsPage() {
                 </label>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-                <p>Batch creation now updates the backend and immediately reflects in the manager and employee experience.</p>
+                <p>Create once, then manage schedule, attendance, reminders, feedback, and reports from the same operating view.</p>
                 <Button type="submit" className="rounded-full bg-black text-white hover:bg-zinc-800">Create batch</Button>
               </div>
             </form>
@@ -427,6 +468,20 @@ export default async function ManagerOperationsPage() {
                       <MiniMetric label="Coordinator" value={batch.coordinator?.full_name || batch.coordinator?.email || 'Manager'} />
                     </div>
 
+                    <form action={updateTrainingBatchStatusAction} className="mt-4 flex flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-4 sm:flex-row sm:items-end sm:justify-between">
+                      <input type="hidden" name="batch_id" value={batch.id} />
+                      <label className="grid flex-1 gap-2 text-sm">
+                        <span className="font-medium">Lifecycle status</span>
+                        <select name="status" defaultValue={batch.status === 'active' || batch.status === 'at_risk' ? 'running' : batch.status} className="h-11 w-full min-w-0 rounded-xl border border-zinc-200 px-3">
+                          <option value="planned">Planned</option>
+                          <option value="running">Running</option>
+                          <option value="completed">Completed</option>
+                          <option value="closed">Closed</option>
+                        </select>
+                      </label>
+                      <Button type="submit" variant="outline" className="rounded-full">Update lifecycle</Button>
+                    </form>
+
                     <div className="mt-4 grid gap-3 lg:grid-cols-2">
                       <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">Learner cohort</p>
@@ -592,6 +647,22 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
     <div className="min-w-0 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
       <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{label}</p>
       <p className="mt-3 text-lg font-semibold leading-tight text-black">{value}</p>
+    </div>
+  )
+}
+
+function ActionTile({ title, value, detail, tone }: { title: string; value: string; detail: string; tone: 'rose' | 'amber' | 'blue' }) {
+  const tones = {
+    rose: 'border-rose-100 bg-rose-50 text-rose-950',
+    amber: 'border-amber-100 bg-amber-50 text-amber-950',
+    blue: 'border-blue-100 bg-blue-50 text-blue-950',
+  }
+
+  return (
+    <div className={`min-w-0 rounded-[1.5rem] border p-5 shadow-sm ${tones[tone]}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60">{title}</p>
+      <p className="mt-3 text-3xl font-semibold">{value}</p>
+      <p className="mt-2 text-sm leading-relaxed opacity-75">{detail}</p>
     </div>
   )
 }
