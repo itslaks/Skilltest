@@ -5,7 +5,6 @@ const path = require('path')
 function loadLocalEnv() {
   const envPath = path.join(__dirname, '..', '.env.local')
   if (!fs.existsSync(envPath)) return
-
   const env = fs.readFileSync(envPath, 'utf8')
   for (const line of env.split(/\r?\n/)) {
     const trimmed = line.trim()
@@ -23,94 +22,92 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase environment variables. Check .env.local.')
+  console.error('❌ Missing Supabase environment variables. Check .env.local.')
   process.exit(1)
 }
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
+  auth: { autoRefreshToken: false, persistSession: false }
 })
 
-async function seedAdmin() {
-  const email = 'admin@hexaware.com'
-  const password = 'Zxcv,0987'
-  
-  console.log(`Checking if admin account exists: ${email}...`)
-  
+const ACCOUNTS = [
+  {
+    email: 'admin@hexaware.com',
+    password: 'Zxcv,0987',
+    full_name: 'Hexaware Admin',
+    role: 'admin',
+    approval_status: 'approved',
+    department: 'Administration',
+  },
+  {
+    email: 'trainer@hexaware.com',
+    password: 'Asdf,1234',
+    full_name: 'Sample Trainer',
+    role: 'trainer',
+    approval_status: 'approved',
+    department: 'Training',
+  },
+]
+
+async function seedAccount(account) {
+  const { email, password, full_name, role, approval_status, department } = account
+  console.log(`\n🔍 Processing: ${email} (${role})`)
+
   const { data: users, error: listError } = await supabase.auth.admin.listUsers()
-  if (listError) {
-    console.error('Error listing users:', listError)
-    return
-  }
-  
+  if (listError) { console.error('  ❌ listUsers error:', listError.message); return }
+
   let user = users.users.find(u => u.email === email)
-  
+
   if (!user) {
-    console.log('Creating admin account...')
+    console.log(`  Creating auth account...`)
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: {
-        full_name: 'Admin Manager',
-        role: 'manager',
-        domain: 'Administration'
-      }
+      user_metadata: { full_name, role, department, approval_status },
     })
-    
-    if (createError) {
-      console.error('Error creating admin account:', createError)
-      return
-    }
+    if (createError) { console.error('  ❌ Create error:', createError.message); return }
     user = newUser.user
-    console.log('Admin account created successfully.')
+    console.log(`  ✅ Auth account created.`)
   } else {
-    console.log('Admin account already exists. Updating password and confirming...')
-    const { error: updateError } = await supabase.auth.admin.updateUserById(
-      user.id,
-      { 
-        password,
-        email_confirm: true,
-        user_metadata: {
-          ...user.user_metadata,
-          full_name: 'Admin Manager',
-          role: 'manager',
-          domain: 'Administration'
-        },
-        app_metadata: {
-          ...user.app_metadata,
-          role: 'manager'
-        }
-      }
-    )
-    if (updateError) {
-      console.error('Error updating admin password:', updateError)
-    } else {
-      console.log('Admin password/status updated.')
-    }
+    console.log(`  Account exists — updating password & metadata...`)
+    const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
+      password,
+      email_confirm: true,
+      user_metadata: { ...user.user_metadata, full_name, role, department, approval_status },
+    })
+    if (updateError) { console.error('  ❌ Update error:', updateError.message); return }
+    console.log(`  ✅ Auth account updated.`)
   }
 
-  // Ensure profile exists and has manager role
-  if (user) {
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        email,
-        full_name: 'Admin Manager',
-        role: 'manager',
-        domain: 'Administration'
-      }, { onConflict: 'id' })
-    
-    if (profileError) {
-      console.error('Error updating admin profile:', profileError)
-    } else {
-      console.log('Admin profile verified/updated.')
-    }
+  // Upsert profile
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .upsert({
+      id: user.id,
+      email,
+      full_name,
+      role,
+      approval_status,
+      department,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' })
+
+  if (profileError) {
+    console.error(`  ❌ Profile upsert error:`, profileError.message)
+  } else {
+    console.log(`  ✅ Profile verified — role: ${role}, approval: ${approval_status}`)
   }
 }
 
-seedAdmin()
+async function main() {
+  console.log('🚀 Seeding admin & trainer accounts...\n')
+  for (const account of ACCOUNTS) {
+    await seedAccount(account)
+  }
+  console.log('\n✅ All done! Credentials:')
+  console.log('   Admin   → admin@hexaware.com   / Zxcv,0987')
+  console.log('   Trainer → trainer@hexaware.com / Asdf,1234')
+}
+
+main()
