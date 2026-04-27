@@ -46,9 +46,48 @@ function isBatchRunning(status: string) {
   return status === 'running' || status === 'active' || status === 'at_risk'
 }
 
-function attendanceCutoffFor(date: Date) {
+const DEFAULT_GOVERNANCE_SETTINGS = {
+  attendanceCutoffTime: '10:00',
+  absenceAlertDays: 3,
+  topperAssessmentWeight: 70,
+  topperProjectWeight: 30,
+  topperMinAttendance: 75,
+  feedbackWindowDays: 5,
+}
+
+function settingNumber(value: unknown, fallback: number) {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : fallback
+}
+
+async function readGovernanceSettings(admin = createAdminClient()) {
+  const { data } = await admin
+    .from('training_system_settings')
+    .select('key, value')
+    .in('key', [
+      'attendance_cutoff_time',
+      'absence_alert_days',
+      'topper_assessment_weight',
+      'topper_project_weight',
+      'topper_min_attendance',
+      'feedback_window_days',
+    ])
+
+  const map = new Map((data || []).map((item: any) => [item.key, item.value]))
+  return {
+    attendanceCutoffTime: String(map.get('attendance_cutoff_time') || DEFAULT_GOVERNANCE_SETTINGS.attendanceCutoffTime),
+    absenceAlertDays: settingNumber(map.get('absence_alert_days'), DEFAULT_GOVERNANCE_SETTINGS.absenceAlertDays),
+    topperAssessmentWeight: settingNumber(map.get('topper_assessment_weight'), DEFAULT_GOVERNANCE_SETTINGS.topperAssessmentWeight),
+    topperProjectWeight: settingNumber(map.get('topper_project_weight'), DEFAULT_GOVERNANCE_SETTINGS.topperProjectWeight),
+    topperMinAttendance: settingNumber(map.get('topper_min_attendance'), DEFAULT_GOVERNANCE_SETTINGS.topperMinAttendance),
+    feedbackWindowDays: settingNumber(map.get('feedback_window_days'), DEFAULT_GOVERNANCE_SETTINGS.feedbackWindowDays),
+  }
+}
+
+function attendanceCutoffForTime(date: Date, cutoffTime: string) {
+  const [hoursRaw, minutesRaw] = cutoffTime.split(':')
   const cutoff = new Date(date)
-  cutoff.setHours(10, 0, 0, 0)
+  cutoff.setHours(Number(hoursRaw) || 10, Number(minutesRaw) || 0, 0, 0)
   return cutoff
 }
 
@@ -83,6 +122,7 @@ export async function getTrainingOpsManagerData() {
   const batches = batchesRes.data || []
   const trainers = trainersRes.data || []
   const employees = employeesRes.data || []
+  const governanceSettings = await readGovernanceSettings(admin)
 
   const batchIds = batches.map((batch: any) => batch.id)
 
@@ -170,7 +210,7 @@ export async function getTrainingOpsManagerData() {
     if (!session.attendance_required || session.status === 'cancelled') return false
     const sessionDate = new Date(session.session_date)
     if (sessionDate.toISOString().slice(0, 10) !== todayKey) return false
-    if (now < attendanceCutoffFor(sessionDate)) return false
+    if (now < attendanceCutoffForTime(sessionDate, governanceSettings.attendanceCutoffTime)) return false
     const records = attendance.filter((entry: any) => entry.session_id === session.id)
     return records.length === 0 || records.every((entry: any) => entry.status === 'absent' && !entry.check_in_time)
   }).length
@@ -192,8 +232,8 @@ export async function getTrainingOpsManagerData() {
     const batchSessions = (sessionsByBatch.get(member.batch_id) || [])
       .filter((session: any) => session.attendance_required && session.status !== 'cancelled')
       .sort((a: any, b: any) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())
-      .slice(0, 3)
-    if (batchSessions.length < 3) continue
+      .slice(0, governanceSettings.absenceAlertDays)
+    if (batchSessions.length < governanceSettings.absenceAlertDays) continue
     const absentThreeDays = batchSessions.every((session: any) => {
       const entry = attendanceBySessionUser.get(`${session.id}:${member.user_id}`)
       return !entry || entry.status === 'absent'
@@ -230,7 +270,42 @@ export async function getTrainingOpsManagerData() {
     notifications,
     feedback,
     quizzes,
+    governanceSettings,
   }
+}
+
+export async function getTrainingGovernanceSettings() {
+  await requireManager()
+  const admin = createAdminClient()
+  return readGovernanceSettings(admin)
+}
+
+export async function updateTrainingGovernanceSettings(formData: FormData): Promise<ApiResponse<boolean>> {
+  const { userId } = await requireManager()
+  const admin = createAdminClient()
+
+  const cutoff = asRequiredString(formData.get('attendance_cutoff_time'), DEFAULT_GOVERNANCE_SETTINGS.attendanceCutoffTime)
+  const absenceDays = Math.max(1, Number(asRequiredString(formData.get('absence_alert_days'), String(DEFAULT_GOVERNANCE_SETTINGS.absenceAlertDays))) || DEFAULT_GOVERNANCE_SETTINGS.absenceAlertDays)
+  const assessmentWeight = Math.max(0, Number(asRequiredString(formData.get('topper_assessment_weight'), String(DEFAULT_GOVERNANCE_SETTINGS.topperAssessmentWeight))) || DEFAULT_GOVERNANCE_SETTINGS.topperAssessmentWeight)
+  const projectWeight = Math.max(0, Number(asRequiredString(formData.get('topper_project_weight'), String(DEFAULT_GOVERNANCE_SETTINGS.topperProjectWeight))) || DEFAULT_GOVERNANCE_SETTINGS.topperProjectWeight)
+  const minAttendance = Math.max(0, Number(asRequiredString(formData.get('topper_min_attendance'), String(DEFAULT_GOVERNANCE_SETTINGS.topperMinAttendance))) || DEFAULT_GOVERNANCE_SETTINGS.topperMinAttendance)
+  const feedbackDays = Math.max(1, Number(asRequiredString(formData.get('feedback_window_days'), String(DEFAULT_GOVERNANCE_SETTINGS.feedbackWindowDays))) || DEFAULT_GOVERNANCE_SETTINGS.feedbackWindowDays)
+
+  const rows = [
+    { key: 'attendance_cutoff_time', value: cutoff, updated_by: userId, updated_at: new Date().toISOString() },
+    { key: 'absence_alert_days', value: absenceDays, updated_by: userId, updated_at: new Date().toISOString() },
+    { key: 'topper_assessment_weight', value: assessmentWeight, updated_by: userId, updated_at: new Date().toISOString() },
+    { key: 'topper_project_weight', value: projectWeight, updated_by: userId, updated_at: new Date().toISOString() },
+    { key: 'topper_min_attendance', value: minAttendance, updated_by: userId, updated_at: new Date().toISOString() },
+    { key: 'feedback_window_days', value: feedbackDays, updated_by: userId, updated_at: new Date().toISOString() },
+  ]
+
+  const { error } = await admin.from('training_system_settings').upsert(rows, { onConflict: 'key' })
+  if (error) return { error: error.message }
+
+  revalidatePath('/manager/settings')
+  revalidatePath('/manager/operations')
+  return { data: true }
 }
 
 export async function getEmployeeTrainingData() {
@@ -614,6 +689,74 @@ export async function createTrainingNotification(formData: FormData): Promise<Ap
   revalidatePath('/manager')
   revalidatePath('/manager/operations')
   revalidatePath('/employee')
+  revalidatePath('/employee/training')
+  return { data: true }
+}
+
+export async function createFeedbackWindow(formData: FormData): Promise<ApiResponse<boolean>> {
+  const { userId } = await requireManager()
+  const admin = createAdminClient()
+
+  const batchId = asRequiredString(formData.get('batch_id'))
+  const sessionId = asOptionalString(formData.get('session_id'))
+  const title = asRequiredString(formData.get('title'), 'Training feedback request')
+  const closesAt = asRequiredString(formData.get('closes_at'))
+
+  if (!batchId || !closesAt) {
+    return { error: 'Batch and closure date are required.' }
+  }
+
+  const { data: window, error } = await admin
+    .from('training_feedback_windows')
+    .insert({
+      batch_id: batchId,
+      session_id: sessionId,
+      title,
+      closes_at: closesAt,
+      status: 'open',
+      created_by: userId,
+    })
+    .select('id')
+    .single()
+
+  if (error || !window) {
+    return { error: error?.message || 'Unable to open feedback window.' }
+  }
+
+  const { data: notification } = await admin
+    .from('training_notifications')
+    .insert({
+      batch_id: batchId,
+      session_id: sessionId,
+      title: `Feedback open: ${title}`,
+      message: `Feedback collection is open until ${new Date(closesAt).toLocaleString()}.`,
+      audience: 'batch',
+      channel: 'email',
+      delivery_status: 'sent',
+      sent_at: new Date().toISOString(),
+      created_by: userId,
+    })
+    .select('id')
+    .single()
+
+  const { data: members } = await admin
+    .from('batch_members')
+    .select('profile:user_id(email)')
+    .eq('batch_id', batchId)
+
+  if (notification?.id && members?.length) {
+    await admin.from('training_notification_dispatch_log').insert(
+      members.map((member: any) => ({
+        notification_id: notification.id,
+        recipient_email: member.profile?.email || null,
+        channel: 'email',
+        provider_status: 'logged',
+        provider_message: 'Email dispatch logged for demo/governance. Connect SMTP provider for live sending.',
+      }))
+    )
+  }
+
+  revalidatePath('/manager/operations')
   revalidatePath('/employee/training')
   return { data: true }
 }

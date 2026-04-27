@@ -67,18 +67,39 @@ export async function GET() {
 
   const sessions = sessionsRes.data || []
   const sessionIds = sessions.map((session: any) => session.id)
-  const attendanceRes = sessionIds.length
-    ? await dataClient
-        .from('session_attendance')
-        .select('*, session:session_id(title, session_date, batch_id), profile:user_id(full_name, email, employee_id)')
-        .in('session_id', sessionIds)
-    : { data: [] }
+  const [attendanceRes, uploadsRes, settingsRes, attemptsRes] = await Promise.all([
+    sessionIds.length
+      ? dataClient
+          .from('session_attendance')
+          .select('*, session:session_id(title, session_date, batch_id), profile:user_id(full_name, email, employee_id)')
+          .in('session_id', sessionIds)
+      : Promise.resolve({ data: [] }),
+    sessionIds.length
+      ? dataClient
+          .from('training_attendance_uploads')
+          .select('*, session:session_id(title), uploader:uploaded_by(full_name, email)')
+          .in('session_id', sessionIds)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    dataClient
+      .from('training_system_settings')
+      .select('key, value'),
+    batchIds.length
+      ? dataClient
+          .from('quiz_attempts')
+          .select('user_id, score, points_earned, time_taken_seconds, quizzes!inner(title, batch_id), profiles:user_id(full_name, email, employee_id)')
+          .in('quizzes.batch_id', batchIds)
+          .eq('status', 'completed')
+      : Promise.resolve({ data: [] }),
+  ])
 
   const members = membersRes.data || []
   const attendance = attendanceRes.data || []
+  const uploads = uploadsRes.data || []
   const notifications = notificationsRes.data || []
   const feedback = feedbackRes.data || []
   const quizzes = quizzesRes.data || []
+  const settings = Object.fromEntries((settingsRes.data || []).map((item: any) => [item.key, item.value]))
 
   const membersByBatch = groupBy(members, 'batch_id')
   const sessionsByBatch = groupBy(sessions, 'batch_id')
@@ -142,6 +163,25 @@ export async function GET() {
     'Passing Score': quiz.passing_score,
     'Status': quiz.is_active ? 'Active' : 'Inactive',
   })))
+  addSheet(wb, 'Attendance Uploads', uploads.map((upload: any) => ({
+    'Session': upload.session?.title || upload.session_id,
+    'Uploaded By': upload.uploader?.full_name || upload.uploader?.email || 'Unknown',
+    'File Name': upload.file_name || 'N/A',
+    'Total Records': upload.total_records,
+    'Successful Records': upload.successful_records,
+    'Failed Records': upload.failed_records,
+    'Uploaded At': upload.created_at ? new Date(upload.created_at).toLocaleString() : 'N/A',
+  })))
+  addSheet(wb, 'Topper Criteria', [
+    {
+      'Assessment Weight (%)': settings.topper_assessment_weight || 70,
+      'Project Weight (%)': settings.topper_project_weight || 30,
+      'Minimum Attendance (%)': settings.topper_min_attendance || 75,
+      'Attendance Cutoff': settings.attendance_cutoff_time || '10:00',
+      'Absence Alert Days': settings.absence_alert_days || 3,
+    },
+  ])
+  addSheet(wb, 'Topper Candidates', buildTopperRows(attemptsRes.data || [], attendance, settings))
   addSheet(wb, 'Feedback', feedback.map((item: any) => ({
     'Batch': item.batch?.title || 'N/A',
     'Session': item.session?.title || 'N/A',
@@ -197,4 +237,50 @@ function normalizeStatus(status: string) {
   if (status === 'active') return 'Running'
   if (status === 'at_risk') return 'Running - At Risk'
   return status.replace('_', ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function buildTopperRows(attempts: any[], attendance: any[], settings: Record<string, any>) {
+  const assessmentWeight = Number(settings.topper_assessment_weight || 70)
+  const minAttendance = Number(settings.topper_min_attendance || 75)
+  const byUser = new Map<string, any>()
+  for (const attempt of attempts) {
+    const current = byUser.get(attempt.user_id) || {
+      profile: attempt.profiles,
+      scores: [],
+      points: 0,
+      time: 0,
+    }
+    current.scores.push(Number(attempt.score || 0))
+    current.points += Number(attempt.points_earned || 0)
+    current.time += Number(attempt.time_taken_seconds || 0)
+    byUser.set(attempt.user_id, current)
+  }
+
+  const attendanceByUser = new Map<string, { total: number; positive: number }>()
+  for (const entry of attendance) {
+    const current = attendanceByUser.get(entry.user_id) || { total: 0, positive: 0 }
+    current.total += 1
+    if (entry.status === 'present' || entry.status === 'late') current.positive += 1
+    attendanceByUser.set(entry.user_id, current)
+  }
+
+  return Array.from(byUser.entries())
+    .map(([userId, item]) => {
+      const attendanceStats = attendanceByUser.get(userId)
+      const attendanceRate = attendanceStats?.total ? Math.round((attendanceStats.positive / attendanceStats.total) * 100) : 0
+      const averageScore = item.scores.length ? Math.round(item.scores.reduce((sum: number, score: number) => sum + score, 0) / item.scores.length) : 0
+      const topperScore = Math.round((averageScore * assessmentWeight) / 100)
+      return {
+        'Candidate Name': item.profile?.full_name || 'Unknown',
+        'Email': item.profile?.email || '',
+        'Employee ID': item.profile?.employee_id || 'N/A',
+        'Average Assessment Score': averageScore,
+        'Attendance (%)': attendanceRate,
+        'Eligible': attendanceRate >= minAttendance ? 'Yes' : 'Attendance below threshold',
+        'Transparent Topper Score': topperScore,
+        'Attempts': item.scores.length,
+        'Points': item.points,
+      }
+    })
+    .sort((a, b) => b['Transparent Topper Score'] - a['Transparent Topper Score'])
 }

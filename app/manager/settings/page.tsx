@@ -1,13 +1,21 @@
 import { getUserProfile } from '@/lib/actions/auth'
 import { redirect } from 'next/navigation'
 import { ProfileForm } from '@/components/manager/profile-form'
+import { getTrainingGovernanceSettings, updateTrainingGovernanceSettings } from '@/lib/actions/training'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Shield, Key, Globe } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Shield, Key, Globe, Clock, Trophy, MessageSquareText } from 'lucide-react'
+
+async function updateGovernanceAction(formData: FormData) {
+  'use server'
+  await updateTrainingGovernanceSettings(formData)
+}
 
 export default async function ManagerSettingsPage() {
   const profile = await getUserProfile()
   if (!profile) redirect('/auth/login')
+  const governance = await getTrainingGovernanceSettings()
 
   return (
     <div className="space-y-8">
@@ -18,6 +26,62 @@ export default async function ManagerSettingsPage() {
 
       {/* Profile form */}
       <ProfileForm profile={profile} />
+
+      <Card className="border-zinc-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            TMS Governance Controls
+          </CardTitle>
+          <CardDescription>
+            Simple business controls for attendance discipline, feedback windows, and topper criteria.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={updateGovernanceAction} className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="grid gap-2 text-sm">
+                <span className="flex items-center gap-2 font-medium"><Clock className="h-4 w-4" />Attendance cut-off</span>
+                <input name="attendance_cutoff_time" type="time" defaultValue={governance.attendanceCutoffTime} className="h-11 rounded-xl border border-zinc-200 px-3" />
+              </label>
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium">Absence alert days</span>
+                <input name="absence_alert_days" type="number" min="1" max="10" defaultValue={governance.absenceAlertDays} className="h-11 rounded-xl border border-zinc-200 px-3" />
+              </label>
+              <label className="grid gap-2 text-sm">
+                <span className="flex items-center gap-2 font-medium"><MessageSquareText className="h-4 w-4" />Default feedback window</span>
+                <input name="feedback_window_days" type="number" min="1" max="30" defaultValue={governance.feedbackWindowDays} className="h-11 rounded-xl border border-zinc-200 px-3" />
+              </label>
+            </div>
+
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <div className="flex items-center gap-2 text-sm font-semibold text-amber-950">
+                <Trophy className="h-4 w-4" />
+                Topper criteria
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">Assessment weight (%)</span>
+                  <input name="topper_assessment_weight" type="number" min="0" max="100" defaultValue={governance.topperAssessmentWeight} className="h-11 rounded-xl border border-amber-200 bg-white px-3" />
+                </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">Project weight (%)</span>
+                  <input name="topper_project_weight" type="number" min="0" max="100" defaultValue={governance.topperProjectWeight} className="h-11 rounded-xl border border-amber-200 bg-white px-3" />
+                </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">Minimum attendance (%)</span>
+                  <input name="topper_min_attendance" type="number" min="0" max="100" defaultValue={governance.topperMinAttendance} className="h-11 rounded-xl border border-amber-200 bg-white px-3" />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+              <p>These values drive the manager action center, feedback workflow, and reproducible topper reports.</p>
+              <Button type="submit" className="rounded-full bg-black text-white hover:bg-zinc-800">Save governance controls</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Account Info Card */}
       <Card>

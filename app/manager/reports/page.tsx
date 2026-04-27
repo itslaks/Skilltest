@@ -85,7 +85,13 @@ export default async function ManagerReportsPage() {
           <Button variant="outline" asChild>
             <a href="/api/reports/training-ops/download">
               <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Training Ops Export
+              Training Ops Excel
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href="/api/reports/training-ops/pdf">
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Training Ops PDF
             </a>
           </Button>
           <DownloadReportButton quizId="all" variant="all" />

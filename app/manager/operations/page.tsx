@@ -1,5 +1,6 @@
 import {
   createTrainingBatch,
+  createFeedbackWindow,
   createTrainingNotification,
   createTrainingSession,
   getTrainingOpsManagerData,
@@ -9,6 +10,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AttendanceImporter } from '@/components/manager/attendance-importer'
+import { BatchCandidateImporter } from '@/components/manager/batch-candidate-importer'
 import { DashboardSignalShowcase } from '@/components/insights/dashboard-signal-showcase'
 import {
   BellRing,
@@ -33,6 +36,11 @@ async function createTrainingSessionAction(formData: FormData) {
 async function createTrainingNotificationAction(formData: FormData) {
   'use server'
   await createTrainingNotification(formData)
+}
+
+async function createFeedbackWindowAction(formData: FormData) {
+  'use server'
+  await createFeedbackWindow(formData)
 }
 
 async function updateAttendanceStatusAction(formData: FormData) {
@@ -165,9 +173,14 @@ export default async function ManagerOperationsPage() {
             Batch export
           </div>
           <p className="mt-3 text-sm text-zinc-400">Download batches, attendance, feedback, reminders, and linked assessments in one Excel workbook.</p>
-          <Button asChild className="mt-4 rounded-full bg-white text-black hover:bg-zinc-200">
-            <a href="/api/reports/training-ops/download">Export ops report</a>
-          </Button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button asChild className="rounded-full bg-white text-black hover:bg-zinc-200">
+              <a href="/api/reports/training-ops/download">Excel</a>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white">
+              <a href="/api/reports/training-ops/pdf">PDF</a>
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -430,6 +443,8 @@ export default async function ManagerOperationsPage() {
         </Card>
       </div>
 
+      <BatchCandidateImporter batches={batches.map((batch: any) => ({ id: batch.id, title: batch.title }))} />
+
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="border-zinc-200 shadow-sm spotlight-card">
           <CardHeader>
@@ -559,6 +574,39 @@ export default async function ManagerOperationsPage() {
                 ))
               )}
             </div>
+
+            <form action={createFeedbackWindowAction} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">Open feedback window</p>
+              <div className="mt-4 grid gap-3">
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">Batch</span>
+                  <select name="batch_id" required className="h-11 rounded-xl border border-zinc-200 bg-white px-3">
+                    <option value="">Select batch</option>
+                    {batches.map((batch: any) => (
+                      <option key={batch.id} value={batch.id}>{batch.title}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">Related session</span>
+                  <select name="session_id" className="h-11 rounded-xl border border-zinc-200 bg-white px-3">
+                    <option value="">Optional</option>
+                    {sessions.map((session: any) => (
+                      <option key={session.id} value={session.id}>{session.title}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">Feedback title</span>
+                  <input name="title" defaultValue="Training content and trainer feedback" className="h-11 rounded-xl border border-zinc-200 bg-white px-3" />
+                </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium">Close by</span>
+                  <input name="closes_at" type="datetime-local" required className="h-11 rounded-xl border border-zinc-200 bg-white px-3" />
+                </label>
+                <Button type="submit" className="rounded-full bg-black text-white hover:bg-zinc-800">Trigger feedback email</Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
       </div>
@@ -569,6 +617,14 @@ export default async function ManagerOperationsPage() {
           <CardDescription>Session-level attendance now has physical controls in the UI and persists through the backend.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <AttendanceImporter
+            sessions={sessions.map((session: any) => ({
+              id: session.id,
+              title: session.title,
+              batchTitle: session.batch?.title || 'Batch',
+              sessionDate: session.session_date,
+            }))}
+          />
           {sessions.length === 0 ? (
             <EmptyState text="No sessions scheduled yet. Attendance controls appear here after a session is created." />
           ) : (
