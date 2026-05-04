@@ -150,10 +150,12 @@ export default async function ManagerReportsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <section className="rounded-[2rem] border border-zinc-900 bg-black p-6 text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] md:p-8 dashboard-grid-bg maverick-command-band">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">skilltest_ai Report Center</h1>
-          <p className="text-muted-foreground mt-1">Attendance, assessment, feedback, topper, and consolidated batch reporting</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-cyan-300/80">Maverick TMS Evidence Desk</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">Reports that prove execution, not just export data</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-zinc-400">Attendance, assessment, feedback, topper, automation, and consolidated batch reporting are grouped for audit-ready walkthroughs.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
@@ -182,7 +184,8 @@ export default async function ManagerReportsPage() {
           </Button>
           <DownloadReportButton quizId="all" variant="all" />
         </div>
-      </div>
+        </div>
+      </section>
 
       <Card className="border-zinc-200 bg-black text-white shadow-sm">
         <CardHeader>

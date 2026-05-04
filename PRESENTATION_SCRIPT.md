@@ -1,166 +1,226 @@
-# SkillTest — Maverick TMS
-# PRESENTATION SCRIPT
-# Hexaware Technologies | Capstone Project
+# Maverick TMS Presentation Script
 
----
+Hexaware Technologies | Capstone Project
 
-## 🎬 OPENING (30 seconds)
+## Opening
 
-"Good [morning/afternoon], everyone.
+"Good morning/afternoon everyone.
 
-What you're about to see is **Maverick TMS** — a full-scale enterprise Training Management System built for Hexaware. This isn't a prototype. This is a production-ready platform that currently handles quiz creation, AI-powered assessment, training operations, batch management, and enterprise-grade data analytics — all in one unified system.
+Today we are presenting the Maverick Execution Platform - Training Management System.
 
-Let me walk you through the three core pillars of this platform."
+This is not just a quiz application. It is an execution and governance platform for the complete training lifecycle: batch creation, candidate onboarding, trainer coordination, attendance discipline, assessment score uploads, project evaluations, feedback, dashboards, automation, toppers, and reports."
 
----
+## Positioning
 
-## 🔐 SECTION 1 — THREE-TIER ROLE SYSTEM (2 minutes)
+"The BRD asks for centralized training execution. Our platform goes beyond that by giving coordinators a command-center view of what is happening right now, what is at risk, and what evidence exists for every action."
 
-### Slide: Show Login Page
+Key message:
 
-"The platform supports **three distinct roles**, each with its own experience, its own interface, and its own level of access."
+- Centralized batch, candidate, trainer, attendance, assessment, feedback, and reporting workflows.
+- Automated governance alerts with visible audit evidence.
+- Differentiated Maverick interface, not a generic admin template.
+- AI and behavioral analytics for a contest-winning layer beyond the BRD.
 
-**[Point to the three role cards on the login page]**
+## Demo Flow
 
-"First: **Admin** — this is the top-most authority. There is exactly one admin account. The admin controls who becomes a trainer, what governance rules apply, and has a bird's-eye view of the entire platform.
+### 1. Login and Roles
 
-Second: **Trainer** — trainers create assessments, manage batches, run sessions, and track student outcomes. A trainer must go through an **approval process** before they can access the platform.
+Show `/auth/login`.
 
-Third: **Student** — employees and candidates who take assessments, earn badges, track their own progress, and participate in the leaderboard. Students sign up and get instant access."
+"The platform has separate experiences for Admin, Trainer, Training Coordinator, and Employee. Access is controlled through server-side RBAC and Supabase RLS."
 
----
+Explain:
 
-## 📝 SECTION 2 — SIGN-UP FLOW (2 minutes)
+- Admin lands in governance.
+- Trainer gets scoped access to assigned batches.
+- Employee sees personal training, assessments, attendance, and feedback.
 
-### Slide: Show Sign-Up Page
+### 2. Admin Governance Console
 
-**[Navigate to `/auth/sign-up`]**
+Navigate to `/manager/admin`.
 
-"Here's our sign-up page. Notice the role selector — this is not just a dropdown. Students and Trainers see a completely different journey from this exact moment.
+"The Admin Governance Console controls trainer approvals, user roles, attendance cut-off rules, feedback windows, and topper criteria."
 
-**Student flow**: I select Student, fill in my name, email, and password — I click Create Account. Within seconds, my account is verified and I'm in.
+Show:
 
-**Trainer flow**: I select Trainer. Notice immediately a yellow notice appears: *'Your account will be reviewed by an admin before you can log in.'* When a trainer submits, their account is created — but it sits in a **pending** state. They cannot log in until the admin approves it."
+- Pending trainer approvals.
+- Role management.
+- TMS controls.
+- Admin audit log.
 
----
+Talk track:
 
-## 🔑 SECTION 3 — ADMIN CONSOLE: TRAINER APPROVAL (2 minutes)
+"This is important because the BRD requires operational governance, not just data entry. Admin decisions and sensitive changes are visible and auditable."
 
-### Slide: Log in as Admin
+### 3. Operations Control Room
 
-**[Log in with admin@hexaware.com / Zxcv,0987]**
+Navigate to `/manager/operations`.
 
-"I'm logging in as Admin. Notice the platform knows — I'm taken directly to the **Admin Governance Console**, not the trainer dashboard."
+"This is the core Maverick control room. It is designed to look different from a standard card dashboard while still staying professional and operational."
 
-**[Show the Pending Sign-Ups card at the top]**
+Show:
 
-"Right at the top of the Admin Console, there's a **Pending Trainer Sign-Ups** section. It shows an amber alert badge whenever there are trainers waiting for approval.
+- Active batches.
+- Upcoming sessions.
+- Attendance health.
+- Action alerts.
+- Assessment clearance.
+- Batch export.
 
-For each pending trainer — I can see their name, email, department, and when they applied. Two buttons: **Approve** or **Reject**.
+Then focus on the Automation Credibility section:
 
-The moment I click **Approve** — that trainer's account is activated. On their next login attempt, they get in. If I **Reject** — they see a rejection message and need to contact me.
+"For judges, automation needs to be visible. Here we show configured cut-off time, absence rule, feedback window, last governance sweep, total alerts created, and how this can be connected to a production scheduler such as Vercel Cron or Supabase Edge Scheduler."
 
-This is clean, simple, and the admin always has control."
+Show Automation Runbook:
 
----
+- Attendance cut-off.
+- Absence streak.
+- Assessment reminder.
+- Feedback reminder.
+- Last run status per check.
+- Optional batch override.
 
-## 👨‍🏫 SECTION 4 — TRAINER DASHBOARD (1.5 minutes)
+Key line:
 
-### Slide: Show Trainer Dashboard
+"The platform does not just send reminders. It logs every governance run, stores notification records, and includes the evidence in reports."
 
-**[Log in as trainer@hexaware.com / Asdf,1234]**
+### 4. Batch Lifecycle
 
-"Now I'm logged in as a **Trainer**. Notice the sidebar — it shows a **violet Trainer badge**. The navigation is scoped to only what a trainer needs: Dashboard, Training Ops, Quizzes, Employees.
+Still on `/manager/operations`.
 
-The welcome banner shows **Trainer Dashboard** in violet — visually distinct from the Manager view. Trainers create quizzes, manage batches, run sessions, and track how their students are performing."
+Show:
 
----
+- Batch creation.
+- Trainer panel assignment.
+- Candidate assignment.
+- Assessment linking.
+- Batch status updates.
+- Candidate status dropdowns.
 
-## 🎓 SECTION 5 — STUDENT PORTAL (1.5 minutes)
+Talk track:
 
-### Slide: Show Student Dashboard
+"Coordinators can manage the full batch lifecycle from one operating view. Candidate statuses such as discontinued, not cleared, offered, and onboarded are first-class data, not spreadsheet notes."
 
-**[Log in as any student account]**
+### 5. Attendance and Assessment Uploads
 
-"Now the Student portal. This is a completely different world — teal and black, focused on the learner's journey.
+Show:
 
-The student sees their next assigned quiz, their readiness meter, their streak, points, badges, and knowledge decay alerts. Everything is personalized to their progress.
+- Manual attendance marking.
+- Excel attendance upload.
+- Assessment score upload.
+- Upload validation results.
+- Attendance version history.
+- Assessment upload error panel.
 
-From here they can take quizzes, view the leaderboard, access training notes, and submit feedback — all in one place."
+Talk track:
 
----
+"This replaces manual spreadsheets with controlled uploads, validations, audit history, and error reporting."
 
-## 📊 SECTION 6 — PLATFORM CAPABILITIES (2 minutes)
+### 6. Schedule and Feedback
 
-### Slide: Manager Dashboard Features
+Show:
 
-"Let me quickly show what this platform can do at scale:
+- Batch Schedule Timeline.
+- Feedback and Reminder Pulse.
+- Feedback analytics.
+- Feedback window trigger.
 
-- **AI-powered question generation** — paste content, get 20 MCQs in seconds
-- **Assessment import** — upload competitor assessment Excel sheets, analyze performance
-- **Batch DNA Fingerprint** — understand your entire batch's strengths and weaknesses
-- **Trainer Impact Score** — measure how effective each trainer's batch is performing
-- **Cognitive Load Detector** — detects when a student is overwhelmed during a quiz
-- **Knowledge Decay Tracking** — alerts when a student hasn't revised a topic in 14+ days
-- **Full Training Ops** — batches, sessions, attendance, reminders, feedback cycle
+Talk track:
 
-And all of this is real-time, server-rendered, and secure with Row-Level Security enforced at the database layer."
+"The schedule timeline unifies sessions and assessments. Feedback is not isolated; it feeds directly into trainer effectiveness, content quality, sentiment, and reports."
 
----
+### 7. Batch Comparison and Trainer Performance
 
-## 🔒 SECTION 7 — SECURITY & SCALE (1 minute)
+Show:
 
-"Security is non-negotiable.
+- Batch Comparison and DNA radar.
+- Reports page `/manager/reports`.
+- Trainer Performance Metrics.
 
-Every input goes through **Zod validation** on the server. Admins use a **service role client** that bypasses RLS only on trusted server routes. Regular users cannot access admin data under any circumstances.
+Talk track:
 
-The RBAC system is enforced at **three layers**:
-1. The login redirect (role determines where you land)
-2. Each route's server component (unauthorized users are redirected)
-3. The database (RLS policies block unauthorized queries)
+"The BRD explicitly calls for batch-wise comparison and trainer-wise metrics. We made both visual and presentation-ready. This lets leadership compare training programs, attendance, clearance, and trainer impact side by side."
 
-We've also optimized for **1,000+ concurrent users** — connection pooling, cached queries, minimal client-side rendering."
+### 8. Evidence Desk and Reports
 
----
+Navigate to `/manager/reports`.
 
-## 🎯 CLOSING (30 seconds)
+"The reports page is now positioned as an Evidence Desk. Every export is tied to execution proof: attendance, assessments, feedback, toppers, automation, and consolidated batch filters."
 
-"To summarize — Maverick TMS is:
+Show:
 
-✅ **Three distinct role experiences** — Admin, Trainer, Student
-✅ **Trainer approval workflow** — no unauthorized access
-✅ **AI-powered assessments** — intelligent, adaptive
-✅ **Full training lifecycle** — from batch creation to graduation
-✅ **Production-ready** — deployed on Vercel, secured with Supabase
+- Consolidated report filters.
+- Toppers.
+- PDF and Excel downloads.
+- Topper criteria transparency.
 
-This is the platform Hexaware can use to manage thousands of employees across training programs — right now, today.
+Key line:
 
-Thank you."
+"The topper logic is configurable and transparent, so rankings are reproducible instead of subjective."
 
----
+### 9. Employee Training Hub
 
-## 📌 QUICK REFERENCE DURING DEMO
+Navigate to `/employee/training`.
+
+Show:
+
+- Current batch.
+- Attendance history.
+- Latest reminders.
+- Feedback submission.
+- Linked assessments.
+
+Talk track:
+
+"Employees also see the operational layer. They are not just taking quizzes; they can see training schedule, reminders, attendance status, and submit structured feedback."
+
+## BRD Coverage Summary
+
+Use this if judges ask about requirements:
+
+- Batch lifecycle: covered.
+- Candidate onboarding and batch assignment: covered.
+- Attendance manual and Excel upload: covered.
+- Attendance cut-off and absence alerts: covered.
+- Assessment setup and Excel score uploads: covered.
+- Trainer and coordinator role management: covered.
+- Email notifications and dispatch logs: covered.
+- Feedback initiation, collection, analytics, and export: covered.
+- Dashboards and metrics: covered.
+- Batch comparison: covered.
+- Trainer-wise performance: covered.
+- Topper identification: covered.
+- Excel and PDF exports: covered.
+- RBAC and trainer-scoped access: covered.
+- Audit and logging: covered.
+
+## Closing
+
+"Maverick TMS gives Hexaware a disciplined training execution platform. It reduces spreadsheet dependency, improves visibility, automates follow-ups, and gives leadership the evidence needed to make decisions.
+
+What makes it contest-ready is not only BRD coverage. It is the Maverick command-center experience, automation credibility, trainer impact analytics, Batch DNA, and audit-ready reporting."
+
+## Quick Reference
 
 | Action | URL | Credentials |
 |--------|-----|-------------|
 | Admin login | `/auth/login` | `admin@hexaware.com` / `Zxcv,0987` |
 | Trainer login | `/auth/login` | `trainer@hexaware.com` / `Asdf,1234` |
-| New trainer sign-up | `/auth/sign-up` | Select Trainer role |
-| New student sign-up | `/auth/sign-up` | Select Student role |
-| Admin console | `/manager/admin` | Must be logged in as admin |
-| Forgot password | `/auth/reset-password` | Any registered email |
+| Admin console | `/manager/admin` | Admin only |
+| Operations control room | `/manager/operations` | Trainer/Coordinator/Admin |
+| Evidence Desk | `/manager/reports` | Coordinator/Admin |
+| Employee training hub | `/employee/training` | Employee |
 
----
+## Pre-Demo Checklist
 
-## ⚠️ PRE-DEMO CHECKLIST
+- Run all Supabase migrations through `025_trainer_approval.sql`.
+- Confirm `admin@hexaware.com` has role `admin` and approved status.
+- Confirm `trainer@hexaware.com` has role `trainer` and approved status.
+- Seed at least two batches with sessions, attendance, assessment scores, and feedback.
+- Run one automation check before demo so the Automation Credibility panel shows evidence.
+- Open `/manager/operations`, `/manager/reports`, and `/manager/admin` in separate tabs.
+- Run `npm run build` before final deployment.
 
-- [ ] Run `025_trainer_approval.sql` in Supabase SQL Editor
-- [ ] Confirm `admin@hexaware.com` has role `admin` and `approval_status = approved`
-- [ ] Confirm `trainer@hexaware.com` has role `trainer` and `approval_status = approved`
-- [ ] Clear any test pending trainer accounts from the demo environment
-- [ ] Open the site in a fresh browser window to avoid cached sessions
-- [ ] Have a second browser window ready for the trainer account demo
+## One-Minute Backup Pitch
 
----
-
-*Presentation Script — Maverick TMS | Hexaware Capstone*
+"Maverick TMS is a complete training execution platform. It manages batches, trainers, candidates, attendance, assessments, feedback, toppers, dashboards, alerts, and reports. The standout layer is the Maverick operations control room: batch DNA comparison, trainer scorecards, automation evidence, and audit-ready reporting. It satisfies the BRD and gives judges something visually and operationally different from a standard dashboard."

@@ -36,19 +36,16 @@ export default async function AdminConsolePage() {
   return (
     <div className="space-y-8">
       {/* Hero Banner */}
-      <section className="rounded-[2rem] border border-zinc-900 bg-black p-6 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] md:p-8 dashboard-grid-bg relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-yellow-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-72 h-72 bg-amber-600/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-        <div className="relative z-10 flex items-center gap-4">
-          {/* 3D Gold Crown */}
+      <section className="rounded-[2rem] border border-zinc-900 bg-black p-6 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] md:p-8 dashboard-grid-bg maverick-command-band">
+        <div className="flex items-center gap-4">
           <div className="relative shrink-0">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30" style={{ transform: 'perspective(80px) rotateX(5deg) rotateY(-5deg)' }}>
               <ShieldCheck className="h-7 w-7 text-white drop-shadow" />
             </div>
-            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center text-[9px] font-bold text-yellow-900">⚡</div>
+            <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-yellow-400 flex items-center justify-center text-[9px] font-bold text-yellow-900">TMS</div>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-yellow-400/80 mb-1">Maverick TMS — Full Control</p>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-yellow-400/80 mb-1">Maverick TMS - Full Control</p>
             <h1 className="text-2xl md:text-4xl font-bold tracking-tight">Admin Governance Console</h1>
             <p className="mt-1 text-sm text-zinc-400">
               Approve trainer accounts, manage roles, configure thresholds, and review audit logs.
@@ -56,7 +53,7 @@ export default async function AdminConsolePage() {
           </div>
         </div>
         {pendingTrainers.length > 0 && (
-          <div className="relative z-10 mt-4 inline-flex items-center gap-2 rounded-full bg-amber-500/20 border border-amber-500/40 px-4 py-2 text-sm font-semibold text-amber-400">
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-500/20 border border-amber-500/40 px-4 py-2 text-sm font-semibold text-amber-400">
             <AlertTriangle className="h-4 w-4" />
             {pendingTrainers.length} trainer sign-up{pendingTrainers.length > 1 ? 's' : ''} waiting for your approval
           </div>
@@ -216,7 +213,7 @@ export default async function AdminConsolePage() {
                 <Badge variant="outline">{entry.target_table || 'system'}</Badge>
               </div>
               <p className="mt-1 text-sm text-zinc-500">
-                {entry.actor?.full_name || entry.actor?.email || 'System'} — {new Date(entry.created_at).toLocaleString()}
+                {entry.actor?.full_name || entry.actor?.email || 'System'} - {new Date(entry.created_at).toLocaleString()}
               </p>
             </div>
           ))}

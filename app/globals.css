@@ -253,6 +253,29 @@
     background-size: 22px 22px, 22px 22px, auto, auto;
   }
 
+  .maverick-ops-shell {
+    background:
+      linear-gradient(90deg, rgba(2, 6, 23, 0.035) 1px, transparent 1px),
+      linear-gradient(rgba(2, 6, 23, 0.035) 1px, transparent 1px),
+      linear-gradient(135deg, rgba(246, 248, 251, 0.98), rgba(232, 237, 242, 0.98));
+    background-size: 42px 42px, 42px 42px, auto;
+  }
+
+  .maverick-command-band {
+    background:
+      linear-gradient(135deg, rgba(4, 8, 18, 0.98), rgba(17, 24, 39, 0.98)),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.16), transparent 42%),
+      linear-gradient(270deg, rgba(245, 158, 11, 0.12), transparent 48%);
+  }
+
+  .maverick-rail-card {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.94), rgba(248,250,252,0.9)),
+      linear-gradient(90deg, rgba(14,165,233,0.08), transparent 38%);
+    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.08);
+  }
+
   .spotlight-card {
     position: relative;
     overflow: hidden;
