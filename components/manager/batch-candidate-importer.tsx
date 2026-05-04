@@ -7,6 +7,7 @@ import { FileSpreadsheet, Upload, CheckCircle2, XCircle } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 type BatchOption = { id: string; title: string }
+const CHUNK_SIZE = 1000
 
 export function BatchCandidateImporter({ batches }: { batches: BatchOption[] }) {
   const [batchId, setBatchId] = useState(batches[0]?.id || '')
@@ -43,14 +44,28 @@ export function BatchCandidateImporter({ batches }: { batches: BatchOption[] }) 
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/training/batch-candidate-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ batchId, records: rows, fileName }),
-      })
-      const payload = await response.json()
-      if (!response.ok) throw new Error(payload.error || 'Candidate assignment failed.')
-      setMessage(`${payload.successfulRecords}/${payload.totalRecords} candidate rows assigned. ${payload.failedRecords} row(s) need review.`)
+      const duplicateKeys = findDuplicateKeys(rows)
+      if (duplicateKeys.size) {
+        setError(`Duplicate candidate rows found before upload: ${Array.from(duplicateKeys).slice(0, 5).join(', ')}${duplicateKeys.size > 5 ? '...' : ''}`)
+        return
+      }
+      let total = 0
+      let successful = 0
+      let failed = 0
+      const chunks = chunkRows(rows, CHUNK_SIZE)
+      for (let index = 0; index < chunks.length; index++) {
+        const response = await fetch('/api/training/batch-candidate-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ batchId, records: chunks[index], fileName, chunkIndex: index + 1, chunkTotal: chunks.length }),
+        })
+        const payload = await response.json()
+        if (!response.ok) throw new Error(payload.error || 'Candidate assignment failed.')
+        total += payload.totalRecords || chunks[index].length
+        successful += payload.successfulRecords || 0
+        failed += payload.failedRecords || 0
+      }
+      setMessage(`${successful}/${total} candidate rows assigned. ${failed} row(s) need review.`)
       setRows(null)
     } catch (err: any) {
       setError(err.message || 'Candidate assignment failed.')
@@ -110,4 +125,22 @@ export function BatchCandidateImporter({ batches }: { batches: BatchOption[] }) 
       {error ? <div className="mt-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><XCircle className="h-4 w-4" />{error}</div> : null}
     </div>
   )
+}
+
+function chunkRows<T>(items: T[], size: number) {
+  const chunks: T[][] = []
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size))
+  return chunks
+}
+
+function findDuplicateKeys(rows: Record<string, any>[]) {
+  const seen = new Set<string>()
+  const duplicates = new Set<string>()
+  for (const row of rows) {
+    const key = String(row.Email || row.email || row.Candidate_Email_Address || row.Employee_ID || row.employee_id || row.Candidate_ID || '').trim().toLowerCase()
+    if (!key) continue
+    if (seen.has(key)) duplicates.add(key)
+    seen.add(key)
+  }
+  return duplicates
 }

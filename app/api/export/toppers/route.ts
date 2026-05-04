@@ -2,20 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { createAdminClient } from '@/lib/supabase/server'
 import { canAccessTrainingBatch } from '@/lib/training-access'
+import { averageScore, computeTopperScore, isTopper, normalizeTopperWeights } from '@/lib/topper'
 import * as XLSX from 'xlsx'
-
-/** Configurable topper scoring using governance settings */
-function computeTopperScore(
-  assessmentAvg: number,
-  projectScore: number,
-  attendancePct: number,
-  weights: { assessment: number; project: number; minAttendance: number }
-): number {
-  if (attendancePct < weights.minAttendance) return 0
-  const total = weights.assessment + weights.project
-  if (total === 0) return 0
-  return Math.round((assessmentAvg * weights.assessment + projectScore * weights.project) / total)
-}
 
 export async function GET(request: NextRequest) {
   const auth = await requireManagerForApi()
@@ -36,11 +24,11 @@ export async function GET(request: NextRequest) {
     .select('key, value')
     .in('key', ['topper_assessment_weight', 'topper_project_weight', 'topper_min_attendance'])
   const govMap = new Map((govRows || []).map((r: any) => [r.key, Number(r.value)]))
-  const weights = {
+  const weights = normalizeTopperWeights({
     assessment: govMap.get('topper_assessment_weight') ?? 70,
     project: govMap.get('topper_project_weight') ?? 30,
     minAttendance: govMap.get('topper_min_attendance') ?? 75,
-  }
+  })
 
   let batchQuery = admin.from('training_batches').select('id, title, domain, status, start_date, end_date')
   if (batchId) batchQuery = batchQuery.eq('id', batchId)
@@ -92,9 +80,9 @@ export async function GET(request: NextRequest) {
     const presentCount = memberAttendance.filter((a: any) => a.status === 'present' || a.status === 'late').length
     const attendancePct = batchSessions.length > 0 ? Math.round((presentCount / batchSessions.length) * 100) : 0
     const emailScores = scoresByEmail.get((profile?.email || '').toLowerCase()) || []
-    const assessmentAvg = emailScores.length ? Math.round(emailScores.reduce((a: number, b: number) => a + b, 0) / emailScores.length) : 0
+    const assessmentAvg = averageScore(emailScores)
     const projectScore = projectByUser.get(`${member.batch_id}:${member.user_id}`) ?? 0
-    const topperScore = computeTopperScore(assessmentAvg, projectScore, attendancePct, weights)
+    const topperScore = computeTopperScore({ assessmentAvg, projectScore, attendancePct, weights })
     const batch = batchMap.get(member.batch_id)
 
     topperRows.push({
@@ -113,7 +101,7 @@ export async function GET(request: NextRequest) {
       Assessment_Weight_Pct: weights.assessment,
       Project_Weight_Pct: weights.project,
       Topper_Score: topperScore,
-      Is_Topper: topperScore >= 80 ? 'YES' : '',
+      Is_Topper: isTopper(topperScore, weights) ? 'YES' : '',
     })
   }
 
@@ -140,8 +128,8 @@ export async function GET(request: NextRequest) {
     { Parameter: 'Assessment Weight', Value: `${weights.assessment}%` },
     { Parameter: 'Project Evaluation Weight', Value: `${weights.project}%` },
     { Parameter: 'Minimum Attendance Threshold', Value: `${weights.minAttendance}%` },
-    { Parameter: 'Topper Score Formula', Value: `(Assessment_Avg × ${weights.assessment} + Project_Score × ${weights.project}) / ${weights.assessment + weights.project}` },
-    { Parameter: 'Topper Threshold (Score ≥)', Value: '80' },
+    { Parameter: 'Topper Score Formula', Value: `(Assessment_Avg * ${weights.assessment} + Project_Score * ${weights.project}) / ${weights.assessment + weights.project}` },
+    { Parameter: 'Topper Threshold (Score >=)', Value: weights.threshold },
     { Parameter: 'Report Generated', Value: new Date().toLocaleString() },
     { Parameter: 'Scope', Value: batchId ? `Single batch: ${batchMap.get(batchId)?.title}` : 'All batches' },
   ])

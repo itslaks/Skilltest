@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { createAdminClient } from '@/lib/supabase/server'
+import { averageScore, computeTopperScore, isTopper, normalizeTopperWeights } from '@/lib/topper'
 import * as XLSX from 'xlsx'
 
 export async function GET() {
@@ -37,7 +38,7 @@ export async function GET() {
 
   const { data: govRows } = await admin.from('training_system_settings').select('key, value').in('key', ['topper_assessment_weight', 'topper_project_weight', 'topper_min_attendance'])
   const govMap = new Map((govRows || []).map((r: any) => [r.key, Number(r.value)]))
-  const weights = { assessment: govMap.get('topper_assessment_weight') ?? 70, project: govMap.get('topper_project_weight') ?? 30, minAttendance: govMap.get('topper_min_attendance') ?? 75 }
+  const weights = normalizeTopperWeights({ assessment: govMap.get('topper_assessment_weight') ?? 70, project: govMap.get('topper_project_weight') ?? 30, minAttendance: govMap.get('topper_min_attendance') ?? 75 })
 
   const sessionsByBatch = new Map<string, any[]>()
   for (const s of sessions || []) { const arr = sessionsByBatch.get(s.batch_id) || []; arr.push(s); sessionsByBatch.set(s.batch_id, arr) }
@@ -109,11 +110,10 @@ export async function GET() {
     const presentCount = ma.filter((a: any) => a.status === 'present' || a.status === 'late').length
     const attendancePct = batchSessions.length > 0 ? Math.round((presentCount / batchSessions.length) * 100) : 0
     const emailScores = scoresByEmail.get((profile?.email || '').toLowerCase()) || []
-    const assessmentAvg = emailScores.length ? Math.round(emailScores.reduce((a: number, b: number) => a + b, 0) / emailScores.length) : 0
+    const assessmentAvg = averageScore(emailScores)
     const projectScore = projectByKey.get(`${member.batch_id}:${member.user_id}`) ?? 0
-    const totalW = weights.assessment + weights.project
-    const topperScore = attendancePct >= weights.minAttendance && totalW > 0 ? Math.round((assessmentAvg * weights.assessment + projectScore * weights.project) / totalW) : 0
-    return { Batch: batch?.title || '', Employee_ID: profile?.employee_id || '', Full_Name: profile?.full_name || '', Email: profile?.email || '', Department: profile?.department || '', Enrollment_Status: member.enrollment_status, Attendance_Pct: `${attendancePct}%`, Assessments_Taken: emailScores.length, Assessment_Avg: assessmentAvg, Project_Score: projectScore, Topper_Score: topperScore, Is_Topper: topperScore >= 80 ? 'YES' : '' }
+    const topperScore = computeTopperScore({ assessmentAvg, projectScore, attendancePct, weights })
+    return { Batch: batch?.title || '', Employee_ID: profile?.employee_id || '', Full_Name: profile?.full_name || '', Email: profile?.email || '', Department: profile?.department || '', Enrollment_Status: member.enrollment_status, Attendance_Pct: `${attendancePct}%`, Assessments_Taken: emailScores.length, Assessment_Avg: assessmentAvg, Project_Score: projectScore, Topper_Score: topperScore, Is_Topper: isTopper(topperScore, weights) ? 'YES' : '' }
   }).sort((a: any, b: any) => b.Topper_Score - a.Topper_Score)
 
   const scoreRows = (importResults || []).map((r: any) => ({ Batch: batchMap.get(r.batch_id)?.title || '', Candidate_ID: r.candidate_id || '', Candidate_Email: r.candidate_email || '', Test_Name: r.test_name || '', Score_Pct: `${r.percentage}%` }))

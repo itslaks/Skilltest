@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { createAdminClient } from '@/lib/supabase/server'
 import { canAccessTrainingBatch } from '@/lib/training-access'
+import { averageScore, computeTopperScore, isTopper, normalizeTopperWeights } from '@/lib/topper'
 
 /**
  * PDF export for batch reports using jsPDF + jspdf-autotable.
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
   // ─── Governance settings ─────────────────────────────
   const { data: govRows } = await admin.from('training_system_settings').select('key, value').in('key', ['topper_assessment_weight', 'topper_project_weight', 'topper_min_attendance'])
   const govMap = new Map((govRows || []).map((r: any) => [r.key, Number(r.value)]))
-  const weights = { assessment: govMap.get('topper_assessment_weight') ?? 70, project: govMap.get('topper_project_weight') ?? 30, minAttendance: govMap.get('topper_min_attendance') ?? 75 }
+  const weights = normalizeTopperWeights({ assessment: govMap.get('topper_assessment_weight') ?? 70, project: govMap.get('topper_project_weight') ?? 30, minAttendance: govMap.get('topper_min_attendance') ?? 75 })
 
   let batchQuery = admin.from('training_batches').select('id, title, domain, status, start_date, end_date, trainer:trainer_id(full_name, email), coordinator:coordinator_id(full_name, email)').or(`created_by.eq.${userId},coordinator_id.eq.${userId},trainer_id.eq.${userId}`)
   if (batchId) batchQuery = batchQuery.eq('id', batchId)
@@ -127,11 +128,10 @@ export async function GET(request: NextRequest) {
       const presentCount = ma.filter((a: any) => a.status === 'present' || a.status === 'late').length
       const attendancePct = bSessions.length > 0 ? Math.round((presentCount / bSessions.length) * 100) : 0
       const emailScores = scoresByEmail.get((profile?.email || '').toLowerCase()) || []
-      const assessmentAvg = emailScores.length ? Math.round(emailScores.reduce((a: number, b: number) => a + b, 0) / emailScores.length) : 0
+      const assessmentAvg = averageScore(emailScores)
       const projectScore = projectByKey.get(`${member.batch_id}:${member.user_id}`) ?? 0
-      const totalW = weights.assessment + weights.project
-      const topperScore = attendancePct >= weights.minAttendance && totalW > 0 ? Math.round((assessmentAvg * weights.assessment + projectScore * weights.project) / totalW) : 0
-      return [batch?.title || '', profile?.full_name || '', profile?.employee_id || '', member.enrollment_status, `${attendancePct}%`, assessmentAvg.toString(), projectScore.toString(), topperScore.toString(), topperScore >= 80 ? '★ TOPPER' : '']
+      const topperScore = computeTopperScore({ assessmentAvg, projectScore, attendancePct, weights })
+      return [batch?.title || '', profile?.full_name || '', profile?.employee_id || '', member.enrollment_status, `${attendancePct}%`, assessmentAvg.toString(), projectScore.toString(), topperScore.toString(), isTopper(topperScore, weights) ? 'TOPPER' : '']
     }).sort((a: any[], b: any[]) => Number(b[7]) - Number(a[7]))
 
     autoTable(doc, {
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       bodyStyles: { fontSize: 6.5 },
       margin: { left: 14, right: 14 },
       didParseCell: (data: any) => {
-        if (data.cell.raw === '★ TOPPER') { data.cell.styles.textColor = [16, 128, 0]; data.cell.styles.fontStyle = 'bold' }
+        if (data.cell.raw === 'TOPPER') { data.cell.styles.textColor = [16, 128, 0]; data.cell.styles.fontStyle = 'bold' }
       },
     })
 
@@ -159,8 +159,8 @@ export async function GET(request: NextRequest) {
         ['Assessment Score Weight', `${weights.assessment}%`],
         ['Project Evaluation Weight', `${weights.project}%`],
         ['Minimum Attendance Threshold', `${weights.minAttendance}%`],
-        ['Topper Score Formula', `(Assessment_Avg × ${weights.assessment} + Project × ${weights.project}) ÷ ${weights.assessment + weights.project}`],
-        ['Topper Threshold', 'Score ≥ 80'],
+        ['Topper Score Formula', `(Assessment_Avg * ${weights.assessment} + Project * ${weights.project}) / ${weights.assessment + weights.project}`],
+        ['Topper Threshold', `Score >= ${weights.threshold}`],
       ],
       theme: 'grid',
       headStyles: { fillColor: accentColor, textColor: 255, fontStyle: 'bold', fontSize: 9 },

@@ -24,6 +24,8 @@ type UploadResult = {
   errors?: Array<{ row: number; error: string; email?: string; employeeId?: string }>
 }
 
+const CHUNK_SIZE = 1000
+
 export function AttendanceImporter({ sessions }: AttendanceImporterProps) {
   const [sessionId, setSessionId] = useState(sessions[0]?.id || '')
   const [preview, setPreview] = useState<Record<string, any>[] | null>(null)
@@ -59,14 +61,26 @@ export function AttendanceImporter({ sessions }: AttendanceImporterProps) {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/training/attendance-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, records: preview, fileName }),
-      })
-      const payload = await response.json()
-      if (!response.ok) throw new Error(payload.error || 'Attendance upload failed.')
-      setResult(payload)
+      const duplicateKeys = findDuplicateKeys(preview)
+      if (duplicateKeys.size) {
+        setError(`Duplicate candidate rows found before upload: ${Array.from(duplicateKeys).slice(0, 5).join(', ')}${duplicateKeys.size > 5 ? '...' : ''}`)
+        return
+      }
+      const aggregate: UploadResult = { totalRecords: preview.length, successfulRecords: 0, failedRecords: 0, errors: [] }
+      const chunks = chunkRows(preview, CHUNK_SIZE)
+      for (let index = 0; index < chunks.length; index++) {
+        const response = await fetch('/api/training/attendance-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, records: chunks[index], fileName, chunkIndex: index + 1, chunkTotal: chunks.length }),
+        })
+        const payload = await response.json()
+        if (!response.ok) throw new Error(payload.error || 'Attendance upload failed.')
+        aggregate.successfulRecords += payload.successfulRecords || 0
+        aggregate.failedRecords += payload.failedRecords || 0
+        aggregate.errors?.push(...((payload.errors || []).map((item: any) => ({ ...item, row: item.row + (index * CHUNK_SIZE) }))))
+      }
+      setResult(aggregate)
       setPreview(null)
     } catch (err: any) {
       setError(err.message || 'Attendance upload failed.')
@@ -152,4 +166,22 @@ export function AttendanceImporter({ sessions }: AttendanceImporterProps) {
       ) : null}
     </div>
   )
+}
+
+function chunkRows<T>(rows: T[], size: number) {
+  const chunks: T[][] = []
+  for (let index = 0; index < rows.length; index += size) chunks.push(rows.slice(index, index + size))
+  return chunks
+}
+
+function findDuplicateKeys(rows: Record<string, any>[]) {
+  const seen = new Set<string>()
+  const duplicates = new Set<string>()
+  for (const row of rows) {
+    const key = String(row.Email || row.email || row.Candidate_Email || row.Candidate_Email_Address || row.Employee_ID || row.employee_id || row.Candidate_ID || '').trim().toLowerCase()
+    if (!key) continue
+    if (seen.has(key)) duplicates.add(key)
+    seen.add(key)
+  }
+  return duplicates
 }

@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const { userId, role } = auth
 
-  const { sessionId, records, fileName } = await request.json()
+  const { sessionId, records, fileName, chunkIndex, chunkTotal } = await request.json()
   if (!sessionId || !Array.isArray(records) || records.length === 0) {
     return NextResponse.json({ error: 'Session and attendance rows are required.' }, { status: 400 })
   }
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
   const { data: session, error: sessionError } = await admin
     .from('training_sessions')
-    .select('id, title, batch_id, batch:batch_id(title)')
+    .select('id, title, batch_id, session_date, batch:batch_id(title)')
     .eq('id', sessionId)
     .single()
 
@@ -59,6 +59,25 @@ export async function POST(request: NextRequest) {
 
   const byEmail = new Map((profiles || []).map((profile: any) => [normalize(profile.email), profile]))
   const byEmployeeId = new Map((profiles || []).map((profile: any) => [normalize(profile.employee_id), profile]))
+  const duplicateKeys = new Set<string>()
+  const seenKeys = new Set<string>()
+  records.forEach((record: any) => {
+    const key = normalize(record.Email || record.email || record.Candidate_Email || record.Candidate_Email_Address || record.Employee_ID || record.employee_id || record.Candidate_ID)
+    if (!key) return
+    if (seenKeys.has(key)) duplicateKeys.add(key)
+    seenKeys.add(key)
+  })
+
+  const memberUserIds = new Set<string>()
+  if (profiles?.length) {
+    const { data: members } = await admin
+      .from('batch_members')
+      .select('user_id')
+      .eq('batch_id', session.batch_id)
+      .in('user_id', profiles.map((profile: any) => profile.id))
+    for (const member of members || []) memberUserIds.add(member.user_id)
+  }
+
   const errors: any[] = []
   const rows: any[] = []
 
@@ -66,10 +85,21 @@ export async function POST(request: NextRequest) {
     const email = normalize(record.Email || record.email || record.Candidate_Email || record.Candidate_Email_Address)
     const employeeId = normalize(record.Employee_ID || record.employee_id || record.Candidate_ID)
     const status = normalize(record.Status || record.status || 'present')
+    const rowKey = normalize(email || employeeId)
     const profile = byEmail.get(email) || byEmployeeId.get(employeeId)
+
+    if (rowKey && duplicateKeys.has(rowKey)) {
+      errors.push({ row: index + 1, error: 'Duplicate candidate row in upload.', email, employeeId })
+      return
+    }
 
     if (!profile) {
       errors.push({ row: index + 1, error: 'Candidate not found in system.', email, employeeId })
+      return
+    }
+
+    if (!memberUserIds.has(profile.id)) {
+      errors.push({ row: index + 1, error: 'Candidate is not assigned to this session batch.', email, employeeId })
       return
     }
 
@@ -96,15 +126,19 @@ export async function POST(request: NextRequest) {
       .eq('session_id', sessionId)
       .in('user_id', rows.map((row) => row.user_id))
 
-    const { error } = await admin
-      .from('session_attendance')
-      .upsert(rows, { onConflict: 'session_id,user_id' })
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    const batchSize = 500
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize)
+      const { error } = await admin
+        .from('session_attendance')
+        .upsert(batch, { onConflict: 'session_id,user_id' })
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
     }
 
     const previousByUser = new Map((previousRows || []).map((row: any) => [row.user_id, row]))
-    await admin.from('session_attendance_versions').insert(rows.map((row) => {
+    const versionRows = rows.map((row) => {
       const previous = previousByUser.get(row.user_id)
       return {
         attendance_id: previous?.id || null,
@@ -117,8 +151,23 @@ export async function POST(request: NextRequest) {
         changed_by: userId,
         source: 'excel',
       }
-    }))
+    })
+    for (let i = 0; i < versionRows.length; i += 500) {
+      await admin.from('session_attendance_versions').insert(versionRows.slice(i, i + 500))
+    }
   }
+
+  const settingsRes = await admin
+    .from('training_system_settings')
+    .select('value')
+    .eq('key', 'attendance_cutoff_time')
+    .maybeSingle()
+  const cutoffTime = String(settingsRes.data?.value || '10:00').replaceAll('"', '')
+  const sessionDate = new Date(session.session_date)
+  const [hoursRaw, minutesRaw] = cutoffTime.split(':')
+  const cutoff = new Date(sessionDate)
+  cutoff.setHours(Number(hoursRaw) || 10, Number(minutesRaw) || 0, 0, 0)
+  const uploadedAfterCutoff = new Date() > cutoff
 
   await admin.from('training_attendance_uploads').insert({
     session_id: sessionId,
@@ -129,13 +178,16 @@ export async function POST(request: NextRequest) {
     successful_records: rows.length,
     failed_records: errors.length,
     error_log: errors.length ? errors : null,
+    uploaded_after_cutoff: uploadedAfterCutoff,
+    chunk_index: Number.isFinite(Number(chunkIndex)) ? Number(chunkIndex) : null,
+    chunk_total: Number.isFinite(Number(chunkTotal)) ? Number(chunkTotal) : null,
   })
 
   const { data: notification } = await admin.from('training_notifications').insert({
     batch_id: session.batch_id,
     session_id: sessionId,
     title: `Attendance uploaded: ${session.title}`,
-    message: `${rows.length} attendance record(s) updated. ${errors.length} row(s) need review.`,
+    message: `${rows.length} attendance record(s) updated. ${errors.length} row(s) need review.${uploadedAfterCutoff ? ` Upload was after the ${cutoffTime} cut-off.` : ''}`,
     audience: 'coordinators',
     channel: 'email',
     delivery_status: 'sent',

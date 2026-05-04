@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient()
 
   try {
-    const { quizId, batchId, assessmentSetupId, records, fileName } = await request.json()
+    const { quizId, batchId, assessmentSetupId, records, fileName, chunkIndex, chunkTotal } = await request.json()
 
     if (!records || !Array.isArray(records) || records.length === 0) {
       return NextResponse.json({ error: 'No records provided' }, { status: 400 })
@@ -74,10 +74,22 @@ export async function POST(request: NextRequest) {
       ? await supabase.from('profiles').select('email').in('email', candidateEmails)
       : { data: [] }
     const existingEmails = new Set((profiles || []).map((profile: any) => String(profile.email).toLowerCase()))
+    const fingerprints = cleanRecords.map((record: any) => record.__uploadFingerprint).filter(Boolean)
+    const { data: existingRows } = fingerprints.length
+      ? await supabase
+          .from('assessment_results')
+          .select('upload_fingerprint')
+          .in('upload_fingerprint', fingerprints)
+      : { data: [] }
+    const existingFingerprints = new Set((existingRows || []).map((row: any) => row.upload_fingerprint))
     const candidateCheckedRecords = cleanRecords.filter((record: any, index: number) => {
       const email = String(record.Candidate_Email_Address || record.candidate_email || '').trim().toLowerCase()
       if (email && !existingEmails.has(email)) {
         validationErrors.push({ row: index + 1, error: 'Candidate does not exist in candidate master.', email })
+        return false
+      }
+      if (record.__uploadFingerprint && existingFingerprints.has(record.__uploadFingerprint)) {
+        validationErrors.push({ row: index + 1, error: 'Duplicate upload already exists for this candidate and assessment.', email })
         return false
       }
       return true
@@ -143,7 +155,7 @@ export async function POST(request: NextRequest) {
     }))
 
     // Insert results in batches
-    const batchSize = 50
+    const batchSize = 500
     let insertedCount = 0
     const errors: any[] = [...validationErrors]
 
@@ -180,6 +192,8 @@ export async function POST(request: NextRequest) {
         failed_records: errors.length,
         duplicate_records: validationErrors.filter((item) => String(item.error).toLowerCase().includes('duplicate')).length,
         error_log: errors.length ? errors : null,
+        chunk_index: Number.isFinite(Number(chunkIndex)) ? Number(chunkIndex) : null,
+        chunk_total: Number.isFinite(Number(chunkTotal)) ? Number(chunkTotal) : null,
       })
     }
 

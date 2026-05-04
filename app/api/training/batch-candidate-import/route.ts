@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
 
-  const { batchId, records, fileName } = await request.json()
+  const { batchId, records, fileName, chunkIndex, chunkTotal } = await request.json()
   if (!batchId || !Array.isArray(records) || records.length === 0) {
     return NextResponse.json({ error: 'Batch and candidate rows are required.' }, { status: 400 })
   }
@@ -38,6 +38,15 @@ export async function POST(request: NextRequest) {
   const byEmail = new Map((profiles || []).map((profile: any) => [normalize(profile.email), profile]))
   const byEmployeeId = new Map((profiles || []).map((profile: any) => [normalize(profile.employee_id), profile]))
 
+  const duplicateKeys = new Set<string>()
+  const seenKeys = new Set<string>()
+  records.forEach((record: any) => {
+    const key = normalize(record.Email || record.email || record.Candidate_Email_Address || record.Employee_ID || record.employee_id || record.Candidate_ID)
+    if (!key) return
+    if (seenKeys.has(key)) duplicateKeys.add(key)
+    seenKeys.add(key)
+  })
+
   const errors: any[] = []
   const rows: any[] = []
 
@@ -47,7 +56,12 @@ export async function POST(request: NextRequest) {
     const profile = byEmail.get(email) || byEmployeeId.get(employeeId)
     const enrollment = normalize(record.Enrollment_Status || record.enrollment_status || 'active')
     const support = normalize(record.Support_Status || record.support_status || 'on_track')
+    const rowKey = normalize(email || employeeId)
 
+    if (rowKey && duplicateKeys.has(rowKey)) {
+      errors.push({ row: index + 1, error: 'Duplicate candidate row in upload.', email, employeeId })
+      return
+    }
     if (!profile) {
       errors.push({ row: index + 1, error: 'Candidate not found. Import the candidate master first.', email, employeeId })
       return
@@ -70,8 +84,33 @@ export async function POST(request: NextRequest) {
   })
 
   if (rows.length) {
-    const { error } = await admin.from('batch_members').upsert(rows, { onConflict: 'batch_id,user_id' })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const { data: previousRows } = await admin
+      .from('batch_members')
+      .select('*')
+      .eq('batch_id', batchId)
+      .in('user_id', rows.map((row) => row.user_id))
+
+    for (let i = 0; i < rows.length; i += 500) {
+      const { error } = await admin.from('batch_members').upsert(rows.slice(i, i + 500), { onConflict: 'batch_id,user_id' })
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    const previousByUser = new Map((previousRows || []).map((row: any) => [row.user_id, row]))
+    await admin.from('training_batch_change_audit').insert({
+      batch_id: batchId,
+      change_type: 'batch_candidate_excel_import',
+      previous_value: { existing_members_updated: previousRows?.length || 0 },
+      new_value: {
+        file_name: fileName || null,
+        chunk_index: Number.isFinite(Number(chunkIndex)) ? Number(chunkIndex) : null,
+        chunk_total: Number.isFinite(Number(chunkTotal)) ? Number(chunkTotal) : null,
+        successful_records: rows.length,
+        failed_records: errors.length,
+        inserted_or_updated_user_ids: rows.map((row) => row.user_id),
+        updated_user_ids: rows.filter((row) => previousByUser.has(row.user_id)).map((row) => row.user_id),
+      },
+      changed_by: userId,
+    })
   }
 
   await admin.from('training_notifications').insert({

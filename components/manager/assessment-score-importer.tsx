@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx'
 
 type BatchOption = { id: string; title: string }
 type AssessmentOption = { id: string; batch_id: string; title: string; assessment_type: string }
+const CHUNK_SIZE = 1000
 
 export function AssessmentScoreImporter({
   batches,
@@ -55,20 +56,36 @@ export function AssessmentScoreImporter({
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/assessment-import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          batchId,
-          assessmentSetupId: assessmentSetupId || null,
-          records: rows,
-          fileName,
-        }),
-      })
-      const payload = await response.json()
-      if (!response.ok) throw new Error(payload.error || 'Assessment upload failed.')
-      setMessage(`${payload.insertedRecords}/${payload.totalRecords} assessment rows imported. ${(payload.errors || []).length} row(s) need review.`)
-      setUploadErrors(payload.errors || [])
+      const duplicateKeys = findDuplicateAssessmentRows(rows, batchId, assessmentSetupId)
+      if (duplicateKeys.size) {
+        setError(`Duplicate assessment rows found before upload: ${Array.from(duplicateKeys).slice(0, 5).join(', ')}${duplicateKeys.size > 5 ? '...' : ''}`)
+        return
+      }
+      let total = 0
+      let inserted = 0
+      const errors: Array<{ row?: number; batch?: number; error: string; email?: string }> = []
+      const chunks = chunkRows(rows, CHUNK_SIZE)
+      for (let index = 0; index < chunks.length; index++) {
+        const response = await fetch('/api/assessment-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batchId,
+            assessmentSetupId: assessmentSetupId || null,
+            records: chunks[index],
+            fileName,
+            chunkIndex: index + 1,
+            chunkTotal: chunks.length,
+          }),
+        })
+        const payload = await response.json()
+        if (!response.ok) throw new Error(payload.error || 'Assessment upload failed.')
+        total += payload.totalRecords || chunks[index].length
+        inserted += payload.insertedRecords || 0
+        errors.push(...((payload.errors || []).map((item: any) => ({ ...item, row: item.row ? item.row + (index * CHUNK_SIZE) : item.row }))))
+      }
+      setMessage(`${inserted}/${total} assessment rows imported. ${errors.length} row(s) need review.`)
+      setUploadErrors(errors)
       setRows(null)
     } catch (err: any) {
       setError(err.message || 'Assessment upload failed.')
@@ -146,4 +163,25 @@ export function AssessmentScoreImporter({
       {error ? <div className="mt-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><XCircle className="h-4 w-4" />{error}</div> : null}
     </div>
   )
+}
+
+function chunkRows<T>(items: T[], size: number) {
+  const chunks: T[][] = []
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size))
+  return chunks
+}
+
+function findDuplicateAssessmentRows(rows: Record<string, any>[], batchId: string, assessmentSetupId: string) {
+  const seen = new Set<string>()
+  const duplicates = new Set<string>()
+  for (const row of rows) {
+    const email = String(row.Candidate_Email_Address || row.candidate_email || '').trim().toLowerCase()
+    const candidateId = String(row.Candidate_ID || row.candidate_id || '').trim().toLowerCase()
+    const testId = String(assessmentSetupId || row.Test_Id || row.test_id || 'assessment').trim().toLowerCase()
+    const key = `${batchId}:${testId}:${email || candidateId}`
+    if (!email && !candidateId) continue
+    if (seen.has(key)) duplicates.add(email || candidateId)
+    seen.add(key)
+  }
+  return duplicates
 }

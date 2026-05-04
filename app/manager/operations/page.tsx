@@ -260,6 +260,17 @@ export default async function ManagerOperationsPage() {
     avgTrainer: feedback.length ? (feedback.reduce((sum: number, item: any) => sum + Number(item.trainer_effectiveness_rating || item.rating || 0), 0) / feedback.length).toFixed(1) : '0.0',
   }
 
+  const trainerScorecards = buildTrainerScorecards({
+    batches,
+    batchTrainers,
+    sessions,
+    attendance,
+    feedback,
+    projectEvaluations,
+    importedAssessments,
+    quizAttempts,
+  }).slice(0, 6)
+
   const latestAutomationRun = automationRuns[0]
   const automationRunTypes = ['attendance_cutoff', 'absence_streak', 'assessment_reminder', 'feedback_reminder'] as const
   const automationHealth = {
@@ -832,6 +843,8 @@ export default async function ManagerOperationsPage() {
         <BatchComparisonChart data={batchComparisonData} />
       )}
 
+      <TrainerScorecardDeck items={trainerScorecards} />
+
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="border-zinc-200 shadow-sm spotlight-card">
           <CardHeader>
@@ -1316,6 +1329,58 @@ function FeedbackAnalyticsPanel({ analytics }: { analytics: { total: number; pos
   )
 }
 
+function TrainerScorecardDeck({ items }: { items: Array<{ id: string; name: string; batches: number; attendance: number; assessment: number; feedback: string; risk: string; score: number }> }) {
+  return (
+    <Card className="overflow-hidden border-zinc-900 bg-black text-white shadow-[0_28px_90px_rgba(0,0,0,0.35)]">
+      <CardHeader className="border-b border-white/10">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <CardTitle>Trainer Impact Scorecards</CardTitle>
+            <CardDescription className="text-zinc-400">
+              A demo-ready view of trainer impact across attendance discipline, assessment outcomes, and learner feedback.
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="w-fit border-cyan-300/40 bg-cyan-300/10 text-cyan-200">
+            BRD 5.6 visible
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
+        {items.length === 0 ? (
+          <div className="col-span-full rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-zinc-400">No trainer scorecard data yet.</div>
+        ) : items.map((item) => (
+          <div key={item.id} className="rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-semibold" title={item.name}>{item.name}</p>
+                <p className="mt-1 text-xs text-zinc-400">{item.batches} assigned batch(es)</p>
+              </div>
+              <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-black">{item.score}</div>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <DarkMetric label="Attend" value={`${item.attendance}%`} />
+              <DarkMetric label="Assess" value={`${item.assessment}%`} />
+              <DarkMetric label="Feedback" value={item.feedback} />
+            </div>
+            <div className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-zinc-300">
+              Signal: <span className="font-semibold text-white">{item.risk}</span>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+function DarkMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-center">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold">{value}</p>
+    </div>
+  )
+}
+
 function EmptyState({ text, compact = false }: { text: string; compact?: boolean }) {
   return (
     <div className={`rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 text-center text-zinc-500 ${compact ? 'p-4 text-sm' : 'p-8 text-sm'}`}>
@@ -1335,6 +1400,59 @@ function EvidenceLink({ path, label }: { path: string; label: string }) {
       {label}
     </a>
   )
+}
+
+function buildTrainerScorecards({
+  batches,
+  batchTrainers,
+  sessions,
+  attendance,
+  feedback,
+  projectEvaluations,
+  importedAssessments,
+  quizAttempts,
+}: {
+  batches: any[]
+  batchTrainers: any[]
+  sessions: any[]
+  attendance: any[]
+  feedback: any[]
+  projectEvaluations: any[]
+  importedAssessments: any[]
+  quizAttempts: any[]
+}) {
+  const trainers = new Map<string, { id: string; name: string; batchIds: Set<string> }>()
+  for (const batch of batches) {
+    if (!batch.trainer?.id) continue
+    trainers.set(batch.trainer.id, trainers.get(batch.trainer.id) || { id: batch.trainer.id, name: batch.trainer.full_name || batch.trainer.email || 'Trainer', batchIds: new Set() })
+    trainers.get(batch.trainer.id)!.batchIds.add(batch.id)
+  }
+  for (const assignment of batchTrainers) {
+    const trainer = assignment.trainer
+    if (!trainer?.id) continue
+    trainers.set(trainer.id, trainers.get(trainer.id) || { id: trainer.id, name: trainer.full_name || trainer.email || 'Trainer', batchIds: new Set() })
+    trainers.get(trainer.id)!.batchIds.add(assignment.batch_id)
+  }
+
+  return Array.from(trainers.values()).map((trainer) => {
+    const batchIds = Array.from(trainer.batchIds)
+    const trainerSessions = sessions.filter((session) => batchIds.includes(session.batch_id))
+    const sessionIds = new Set(trainerSessions.map((session) => session.id))
+    const attendanceRows = attendance.filter((row) => sessionIds.has(row.session_id))
+    const positiveAttendance = attendanceRows.filter((row) => ['present', 'late'].includes(row.status)).length
+    const attendanceRate = attendanceRows.length ? Math.round((positiveAttendance / attendanceRows.length) * 100) : 0
+    const scoreRows = [
+      ...quizAttempts.filter((attempt) => batchIds.includes(attempt.quizzes?.batch_id)).map((attempt) => Number(attempt.score || 0)),
+      ...projectEvaluations.filter((item) => batchIds.includes(item.batch_id)).map((item) => Number(item.score || 0)),
+      ...importedAssessments.filter((item) => batchIds.includes(item.batch_id)).map((item) => Number(item.percentage ?? item.candidate_score ?? 0)),
+    ]
+    const assessmentAvg = scoreRows.length ? Math.round(scoreRows.reduce((sum, score) => sum + score, 0) / scoreRows.length) : 0
+    const feedbackRows = feedback.filter((item) => batchIds.includes(item.batch_id) && item.trainer_effectiveness_rating)
+    const avgFeedback = feedbackRows.length ? (feedbackRows.reduce((sum, item) => sum + Number(item.trainer_effectiveness_rating || 0), 0) / feedbackRows.length).toFixed(1) : '0.0'
+    const score = Math.round((attendanceRate * 0.35) + (assessmentAvg * 0.4) + (Number(avgFeedback) * 20 * 0.25))
+    const risk = attendanceRate < 70 ? 'Attendance intervention' : assessmentAvg < 70 ? 'Assessment coaching' : Number(avgFeedback) < 3.5 && feedbackRows.length ? 'Feedback follow-up' : 'Healthy execution'
+    return { id: trainer.id, name: trainer.name, batches: batchIds.length, attendance: attendanceRate, assessment: assessmentAvg, feedback: avgFeedback, score, risk }
+  }).sort((a, b) => b.score - a.score)
 }
 
 function AuditPanel({ title, empty, items }: { title: string; empty: string; items: Array<{ id: string; title: string; body: string; meta: string; href?: string | null }> }) {

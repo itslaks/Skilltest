@@ -1,6 +1,7 @@
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { NextResponse } from 'next/server'
+import { averageScore, computeTopperScore } from '@/lib/topper'
 import * as XLSX from 'xlsx'
 
 export async function GET() {
@@ -317,15 +318,20 @@ function buildTopperRows(attempts: any[], attendance: any[], settings: Record<st
     .map(([userId, item]) => {
       const attendanceStats = attendanceByUser.get(userId)
       const attendanceRate = attendanceStats?.total ? Math.round((attendanceStats.positive / attendanceStats.total) * 100) : 0
-      const averageScore = item.scores.length ? Math.round(item.scores.reduce((sum: number, score: number) => sum + score, 0) / item.scores.length) : 0
+      const assessmentScore = averageScore(item.scores)
       const projectScores = projectEvaluations.filter((item: any) => item.user_id === userId).map((item: any) => Number(item.score || 0))
-      const projectScore = projectScores.length ? Math.round(projectScores.reduce((sum: number, score: number) => sum + score, 0) / projectScores.length) : 0
-      const topperScore = Math.round(((averageScore * assessmentWeight) + (projectScore * projectWeight)) / Math.max(1, assessmentWeight + projectWeight))
+      const projectScore = averageScore(projectScores)
+      const topperScore = computeTopperScore({
+        assessmentAvg: assessmentScore,
+        projectScore,
+        attendancePct: attendanceRate,
+        weights: { assessment: assessmentWeight, project: projectWeight, minAttendance },
+      })
       return {
         'Candidate Name': item.profile?.full_name || 'Unknown',
         'Email': item.profile?.email || '',
         'Employee ID': item.profile?.employee_id || 'N/A',
-        'Average Assessment Score': averageScore,
+        'Average Assessment Score': assessmentScore,
         'Average Project Score': projectScore,
         'Attendance (%)': attendanceRate,
         'Eligible': attendanceRate >= minAttendance ? 'Yes' : 'Attendance below threshold',

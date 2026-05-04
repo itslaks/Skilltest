@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { createAdminClient } from '@/lib/supabase/server'
 import { canAccessTrainingBatch } from '@/lib/training-access'
+import { averageScore, computeTopperScore, isTopper, normalizeTopperWeights } from '@/lib/topper'
 import * as XLSX from 'xlsx'
 
 export async function GET(request: NextRequest) {
@@ -24,11 +25,11 @@ export async function GET(request: NextRequest) {
     .select('key, value')
     .in('key', ['topper_assessment_weight', 'topper_project_weight', 'topper_min_attendance'])
   const govMap = new Map((govRows || []).map((r: any) => [r.key, Number(r.value)]))
-  const weights = {
+  const weights = normalizeTopperWeights({
     assessment: govMap.get('topper_assessment_weight') ?? 70,
     project: govMap.get('topper_project_weight') ?? 30,
     minAttendance: govMap.get('topper_min_attendance') ?? 75,
-  }
+  })
 
   let batchQuery = admin
     .from('training_batches')
@@ -102,13 +103,10 @@ export async function GET(request: NextRequest) {
     const presentCount = memberAttendance.filter((a: any) => a.status === 'present' || a.status === 'late').length
     const attendancePct = batchSessions.length > 0 ? Math.round((presentCount / batchSessions.length) * 100) : 0
     const emailScores = scoresByEmail.get((profile?.email || '').toLowerCase()) || []
-    const assessmentAvg = emailScores.length ? Math.round(emailScores.reduce((a: number, b: number) => a + b, 0) / emailScores.length) : 0
+    const assessmentAvg = averageScore(emailScores)
     const projectData = projectByKey.get(`${member.batch_id}:${member.user_id}`)
     const projectScore = projectData?.score ?? 0
-    const totalW = weights.assessment + weights.project
-    const topperScore = attendancePct >= weights.minAttendance && totalW > 0
-      ? Math.round((assessmentAvg * weights.assessment + projectScore * weights.project) / totalW)
-      : 0
+    const topperScore = computeTopperScore({ assessmentAvg, projectScore, attendancePct, weights })
     const feedback = (feedbackItems || []).filter((f: any) => f.batch_id === member.batch_id && f.user_id === member.user_id)
     const avgFeedbackRating = feedback.length > 0 ? (feedback.reduce((s: number, f: any) => s + (f.rating || 0), 0) / feedback.length).toFixed(1) : ''
 
@@ -132,7 +130,7 @@ export async function GET(request: NextRequest) {
       Project_Title: projectData?.project_title || '',
       Project_Score: projectScore,
       Topper_Score: topperScore,
-      Is_Topper: topperScore >= 80 ? 'YES' : '',
+      Is_Topper: isTopper(topperScore, weights) ? 'YES' : '',
       Feedback_Responses: feedback.length,
       Avg_Feedback_Rating: avgFeedbackRating,
       Trainer: (batch?.trainer as any)?.full_name || (batch?.trainer as any)?.email || '',

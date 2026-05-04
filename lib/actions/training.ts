@@ -54,6 +54,13 @@ function isBatchRunning(status: string) {
   return status === 'running' || status === 'active' || status === 'at_risk'
 }
 
+const BATCH_STATUS_FLOW: Record<TrainingBatchStatus, TrainingBatchStatus[]> = {
+  planned: ['running'],
+  running: ['completed'],
+  completed: ['closed'],
+  closed: [],
+}
+
 const DEFAULT_GOVERNANCE_SETTINGS = {
   attendanceCutoffTime: '10:00',
   absenceAlertDays: 3,
@@ -97,6 +104,11 @@ function attendanceCutoffForTime(date: Date, cutoffTime: string) {
   const cutoff = new Date(date)
   cutoff.setHours(Number(hoursRaw) || 10, Number(minutesRaw) || 0, 0, 0)
   return cutoff
+}
+
+function canTransitionBatchStatus(previous: string | null | undefined, next: TrainingBatchStatus) {
+  const current = normalizeBatchStatus(previous || 'planned')
+  return current === next || BATCH_STATUS_FLOW[current]?.includes(next)
 }
 
 function isUploadFile(value: FormDataEntryValue | null): value is File {
@@ -612,7 +624,7 @@ export async function createTrainingBatch(formData: FormData): Promise<ApiRespon
 }
 
 export async function updateBatchMemberStatus(formData: FormData): Promise<ApiResponse<boolean>> {
-  await requireManager()
+  const { userId } = await requireManager()
   const admin = createAdminClient()
 
   const memberId = asRequiredString(formData.get('member_id'))
@@ -623,6 +635,12 @@ export async function updateBatchMemberStatus(formData: FormData): Promise<ApiRe
     return { error: 'Invalid enrollment status' }
   }
 
+  const { data: previous } = await admin
+    .from('batch_members')
+    .select('*')
+    .eq('id', memberId)
+    .single()
+
   const { error } = await admin
     .from('batch_members')
     .update({ 
@@ -632,6 +650,18 @@ export async function updateBatchMemberStatus(formData: FormData): Promise<ApiRe
     .eq('id', memberId)
 
   if (error) return { error: error.message }
+
+  await admin.from('training_batch_change_audit').insert({
+    batch_id: previous?.batch_id || null,
+    change_type: 'batch_member_status_update',
+    previous_value: previous || null,
+    new_value: {
+      member_id: memberId,
+      user_id: previous?.user_id || null,
+      enrollment_status: status,
+    },
+    changed_by: userId,
+  })
 
   revalidatePath('/manager')
   revalidatePath('/manager/operations')
@@ -656,6 +686,10 @@ export async function updateTrainingBatchStatus(formData: FormData): Promise<Api
     .select('id, title, status')
     .eq('id', batchId)
     .single()
+
+  if (currentBatch && !canTransitionBatchStatus(currentBatch.status, status)) {
+    return { error: `Invalid lifecycle transition: ${normalizeBatchStatus(currentBatch.status)} cannot move directly to ${status}.` }
+  }
 
   const { error } = await admin
     .from('training_batches')
@@ -707,6 +741,10 @@ export async function updateTrainingBatchDetails(formData: FormData): Promise<Ap
     .select('*')
     .eq('id', batchId)
     .single()
+
+  if (previous && !canTransitionBatchStatus(previous.status, status)) {
+    return { error: `Invalid lifecycle transition: ${normalizeBatchStatus(previous.status)} cannot move directly to ${status}.` }
+  }
 
   const { error } = await admin
     .from('training_batches')
