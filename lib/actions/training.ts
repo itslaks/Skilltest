@@ -59,6 +59,8 @@ const BATCH_STATUS_FLOW: Record<TrainingBatchStatus, TrainingBatchStatus[]> = {
   running: ['completed'],
   completed: ['closed'],
   closed: [],
+  active: ['completed'],
+  at_risk: ['completed'],
 }
 
 const DEFAULT_GOVERNANCE_SETTINGS = {

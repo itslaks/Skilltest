@@ -22,6 +22,7 @@ import {
 import { DownloadReportButton } from '@/components/manager/download-report-button'
 import { QuickDeleteButton } from '@/components/manager/quick-delete-button'
 import { TmsBatchDownloads } from '@/components/manager/tms-batch-downloads'
+import { averageScore, computeTopperScore } from '@/lib/topper'
 
 export default async function ManagerReportsPage() {
   const { userId } = await requireManager()
@@ -106,7 +107,7 @@ export default async function ManagerReportsPage() {
     onboarded: members.filter((member: any) => ['onboarded', 'active'].includes(member.enrollment_status)).length,
   }
 
-  const topperRows = buildTopperRows(members, trainingAttempts, projectEvaluations, trainingAttendance, governance).slice(0, 10)
+  const topperRows = buildTopperRows(members, trainingAttempts, projectEvaluations, trainingAttendance, importedAssessments, governance).slice(0, 10)
   const trainerMetrics = buildTrainerMetrics(batches || [], batchTrainersList, trainingAttendance, trainingAttempts, trainingFeedback, projectEvaluations, importedAssessments)
 
   // Get per-quiz attempt data
@@ -576,6 +577,7 @@ function buildTopperRows(
   attempts: any[],
   projectEvaluations: any[],
   attendance: any[],
+  importedAssessments: any[],
   governance: {
     topperAssessmentWeight: number
     topperProjectWeight: number
@@ -587,17 +589,28 @@ function buildTopperRows(
 
   return userIds.map((userId) => {
     const profile = memberByUser.get(userId)?.profile
-    const scores = attempts.filter((attempt: any) => attempt.user_id === userId).map((attempt: any) => Number(attempt.score || 0))
+    const scores = [
+      ...attempts.filter((attempt: any) => attempt.user_id === userId).map((attempt: any) => Number(attempt.score || 0)),
+      ...importedAssessments
+        .filter((result: any) => String(result.candidate_email || '').toLowerCase() === String(profile?.email || '').toLowerCase())
+        .map((result: any) => Number(result.percentage ?? result.candidate_score ?? 0)),
+    ]
     const projects = projectEvaluations.filter((item: any) => item.user_id === userId).map((item: any) => Number(item.score || 0))
     const attendanceRows = attendance.filter((item: any) => item.user_id === userId)
     const positiveAttendance = attendanceRows.filter((item: any) => ['present', 'late'].includes(item.status)).length
     const attendanceRate = attendanceRows.length ? Math.round((positiveAttendance / attendanceRows.length) * 100) : 0
-    const assessmentScore = scores.length ? Math.round(scores.reduce((sum: number, score: number) => sum + score, 0) / scores.length) : 0
-    const projectScore = projects.length ? Math.round(projects.reduce((sum: number, score: number) => sum + score, 0) / projects.length) : 0
-    const totalWeight = Math.max(1, governance.topperAssessmentWeight + governance.topperProjectWeight)
-    const topperScore = attendanceRate >= governance.topperMinAttendance
-      ? Math.round(((assessmentScore * governance.topperAssessmentWeight) + (projectScore * governance.topperProjectWeight)) / totalWeight)
-      : 0
+    const assessmentScore = averageScore(scores)
+    const projectScore = averageScore(projects)
+    const topperScore = computeTopperScore({
+      assessmentAvg: assessmentScore,
+      projectScore,
+      attendancePct: attendanceRate,
+      weights: {
+        assessment: governance.topperAssessmentWeight,
+        project: governance.topperProjectWeight,
+        minAttendance: governance.topperMinAttendance,
+      },
+    })
 
     return {
       userId,

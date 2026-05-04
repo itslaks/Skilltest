@@ -71,9 +71,19 @@ export async function POST(request: NextRequest) {
       .map((record: any) => String(record.Candidate_Email_Address || record.candidate_email || '').trim().toLowerCase())
       .filter(Boolean)
     const { data: profiles } = candidateEmails.length
-      ? await supabase.from('profiles').select('email').in('email', candidateEmails)
+      ? await supabase.from('profiles').select('id, email').in('email', candidateEmails)
       : { data: [] }
     const existingEmails = new Set((profiles || []).map((profile: any) => String(profile.email).toLowerCase()))
+    const profileIdByEmail = new Map((profiles || []).map((profile: any) => [String(profile.email).toLowerCase(), profile.id]))
+    const memberUserIds = new Set<string>()
+    if (batchId && profiles?.length) {
+      const { data: members } = await supabase
+        .from('batch_members')
+        .select('user_id')
+        .eq('batch_id', batchId)
+        .in('user_id', profiles.map((profile: any) => profile.id))
+      for (const member of members || []) memberUserIds.add(member.user_id)
+    }
     const fingerprints = cleanRecords.map((record: any) => record.__uploadFingerprint).filter(Boolean)
     const { data: existingRows } = fingerprints.length
       ? await supabase
@@ -86,6 +96,11 @@ export async function POST(request: NextRequest) {
       const email = String(record.Candidate_Email_Address || record.candidate_email || '').trim().toLowerCase()
       if (email && !existingEmails.has(email)) {
         validationErrors.push({ row: index + 1, error: 'Candidate does not exist in candidate master.', email })
+        return false
+      }
+      const profileId = profileIdByEmail.get(email)
+      if (batchId && profileId && !memberUserIds.has(profileId)) {
+        validationErrors.push({ row: index + 1, error: 'Candidate is not assigned to the selected batch.', email })
         return false
       }
       if (record.__uploadFingerprint && existingFingerprints.has(record.__uploadFingerprint)) {

@@ -19,6 +19,7 @@ import { BatchCandidateImporter } from '@/components/manager/batch-candidate-imp
 import { DashboardSignalShowcase } from '@/components/insights/dashboard-signal-showcase'
 import { BatchComparisonChart } from '@/components/manager/batch-comparison-chart'
 import { BatchMemberStatusDropdown } from '@/components/manager/batch-member-status-dropdown'
+import { OpsAutoRefresh } from '@/components/manager/ops-auto-refresh'
 import { createAdminClient } from '@/lib/supabase/server'
 import {
   BellRing,
@@ -284,6 +285,7 @@ export default async function ManagerOperationsPage() {
 
   return (
     <div className="space-y-8">
+      <OpsAutoRefresh />
       <section className="rounded-[2rem] border border-zinc-900 bg-black p-6 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] md:p-8 dashboard-grid-bg maverick-command-band">
         <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
           <div>
