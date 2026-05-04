@@ -253,7 +253,7 @@ export async function GET() {
   })))
 
   const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
-  const filename = `maverick-training-ops-${new Date().toISOString().slice(0, 10)}.xlsx`
+  const filename = `skilltest_ai-training-ops-${new Date().toISOString().slice(0, 10)}.xlsx`
 
   return new NextResponse(buffer, {
     headers: {

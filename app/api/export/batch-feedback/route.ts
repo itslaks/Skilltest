@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { createAdminClient } from '@/lib/supabase/server'
+import { canAccessTrainingBatch } from '@/lib/training-access'
 import * as XLSX from 'xlsx'
 
 export async function GET(request: NextRequest) {
   const auth = await requireManagerForApi()
   if (auth instanceof NextResponse) return auth
+  const { userId, role } = auth
 
   const batchId = request.nextUrl.searchParams.get('batchId')
   if (!batchId) return NextResponse.json({ error: 'batchId is required' }, { status: 400 })
+  if (!(await canAccessTrainingBatch(batchId, userId, role))) {
+    return NextResponse.json({ error: 'Forbidden: batch access denied' }, { status: 403 })
+  }
 
   const admin = createAdminClient()
 

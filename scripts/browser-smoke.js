@@ -19,7 +19,7 @@ async function main() {
   })
 
   const publicRoutes = [
-    { path: '/', expectText: 'SkillTest' },
+    { path: '/', expectText: 'skilltest_ai' },
     { path: '/auth/login', expectText: 'Welcome back' },
     { path: '/auth/sign-up', expectText: 'Create' },
     { path: '/auth/reset-password', expectText: 'Reset' },
@@ -45,7 +45,11 @@ async function main() {
 
   await browser.close()
 
-  const realConsoleErrors = consoleErrors.filter((text) => !text.includes('favicon.ico'))
+  const realConsoleErrors = consoleErrors.filter((text) =>
+    !text.includes('favicon.ico') &&
+    !text.includes('/_next/webpack-hmr') &&
+    !text.includes('WebSocket connection')
+  )
   if (realConsoleErrors.length > 0) {
     throw new Error(`Console errors found:\n${realConsoleErrors.join('\n')}`)
   }

@@ -142,9 +142,10 @@ export function AttendanceImporter({ sessions }: AttendanceImporterProps) {
           <p className="mt-1">{result.successfulRecords}/{result.totalRecords} rows updated. {result.failedRecords} row(s) need review.</p>
           {result.errors?.length ? (
             <div className="mt-2 space-y-1 text-xs text-rose-700">
-              {result.errors.slice(0, 3).map((item) => (
-                <p key={item.row}>Row {item.row}: {item.error}</p>
+              {result.errors.slice(0, 8).map((item) => (
+                <p key={item.row}>Row {item.row}: {item.error}{item.email ? ` - ${item.email}` : ''}{item.employeeId ? ` - ${item.employeeId}` : ''}</p>
               ))}
+              {result.errors.length > 8 ? <p>{result.errors.length - 8} more row issue(s) are available in the upload log.</p> : null}
             </div>
           ) : null}
         </div>

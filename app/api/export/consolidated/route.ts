@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { createAdminClient } from '@/lib/supabase/server'
+import { canAccessTrainingBatch } from '@/lib/training-access'
 import * as XLSX from 'xlsx'
 
 export async function GET(request: NextRequest) {
   const auth = await requireManagerForApi()
   if (auth instanceof NextResponse) return auth
-  const { userId } = auth
+  const { userId, role } = auth
 
   const { searchParams } = request.nextUrl
   const batchId = searchParams.get('batchId') || undefined
   const filterStatus = searchParams.get('filter') || 'all' // all | discontinued | not_cleared | offered | onboarded
+  if (batchId && !(await canAccessTrainingBatch(batchId, userId, role))) {
+    return NextResponse.json({ error: 'Forbidden: batch access denied' }, { status: 403 })
+  }
 
   const admin = createAdminClient()
 
@@ -43,7 +47,7 @@ export async function GET(request: NextRequest) {
     admin.from('batch_members').select('batch_id, user_id, enrollment_status, support_status, joined_at, profile:user_id(full_name, email, employee_id, department)').in('batch_id', batchIds),
     admin.from('training_sessions').select('id, batch_id, attendance_required, status').in('batch_id', batchIds).neq('status', 'cancelled'),
     admin.from('training_project_evaluations').select('batch_id, user_id, score, project_title').in('batch_id', batchIds),
-    admin.from('training_assessment_results').select('batch_id, candidate_email, percentage, test_name').in('batch_id', batchIds),
+    admin.from('assessment_results').select('batch_id, candidate_email, percentage, test_name').in('batch_id', batchIds),
     admin.from('training_feedback').select('batch_id, user_id, rating, sentiment').in('batch_id', batchIds),
   ])
 

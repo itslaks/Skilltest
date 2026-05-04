@@ -86,7 +86,7 @@ export function DeleteEmployeeButton({
             Are you sure you want to remove <strong>{employeeName}</strong> ({employeeEmail}) from your organization?
             {hasQuizAttempts && (
               <span className="block mt-2 text-destructive font-medium">
-                ⚠️ This employee has quiz attempts that will also be deleted.
+                Warning: this employee has quiz attempts that will also be deleted.
               </span>
             )}
             <span className="block mt-2 text-amber-700 font-medium">

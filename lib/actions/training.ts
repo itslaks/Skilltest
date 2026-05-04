@@ -9,7 +9,6 @@ import {
   buildAbsenceStreakEmail,
   buildAssessmentReminderEmail,
   buildFeedbackRequestEmail,
-  buildUploadConfirmationEmail,
 } from '@/lib/email'
 import type {
   ApiResponse,
@@ -98,6 +97,26 @@ function attendanceCutoffForTime(date: Date, cutoffTime: string) {
   const cutoff = new Date(date)
   cutoff.setHours(Number(hoursRaw) || 10, Number(minutesRaw) || 0, 0, 0)
   return cutoff
+}
+
+function isUploadFile(value: FormDataEntryValue | null): value is File {
+  return typeof File !== 'undefined' && value instanceof File && value.size > 0
+}
+
+function cleanFileName(name: string) {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-').slice(0, 120)
+}
+
+async function uploadTrainingDocument(admin: ReturnType<typeof createAdminClient>, file: File, folder: string) {
+  const bucket = 'training-evidence'
+  await admin.storage.createBucket(bucket, { public: false }).catch(() => null)
+  const path = `${folder}/${crypto.randomUUID()}-${cleanFileName(file.name)}`
+  const { error } = await admin.storage.from(bucket).upload(path, file, {
+    contentType: file.type || 'application/octet-stream',
+    upsert: false,
+  })
+  if (error) throw new Error(error.message)
+  return `${bucket}/${path}`
 }
 
 export async function getTrainingOpsManagerData() {
@@ -592,6 +611,35 @@ export async function createTrainingBatch(formData: FormData): Promise<ApiRespon
   return { data: { id: batch.id } }
 }
 
+export async function updateBatchMemberStatus(formData: FormData): Promise<ApiResponse<boolean>> {
+  await requireManager()
+  const admin = createAdminClient()
+
+  const memberId = asRequiredString(formData.get('member_id'))
+  const status = asRequiredString(formData.get('enrollment_status'))
+
+  const validStatuses = ['onboarded', 'active', 'dropped', 'discontinued', 'not_cleared', 'offered']
+  if (!validStatuses.includes(status)) {
+    return { error: 'Invalid enrollment status' }
+  }
+
+  const { error } = await admin
+    .from('batch_members')
+    .update({ 
+      enrollment_status: status,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', memberId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/manager')
+  revalidatePath('/manager/operations')
+  revalidatePath('/manager/reports')
+
+  return { data: true }
+}
+
 export async function updateTrainingBatchStatus(formData: FormData): Promise<ApiResponse<boolean>> {
   const { userId } = await requireManager()
   const admin = createAdminClient()
@@ -908,13 +956,22 @@ export async function createTrainingAssessmentSetup(formData: FormData): Promise
   const assessmentType = (asRequiredString(formData.get('assessment_type'), 'sprint_review') || 'sprint_review') as TrainingAssessmentType
   const scheduledAt = asOptionalString(formData.get('scheduled_at'))
   const templateName = asOptionalString(formData.get('template_name'))
-  const questionFileName = asOptionalString(formData.get('question_file_name'))
+  const questionFileInput = formData.get('question_file')
+  let questionFileName = asOptionalString(formData.get('question_file_name'))
   const maxScore = Number(asRequiredString(formData.get('max_score'), '100')) || 100
   const passingScore = Number(asRequiredString(formData.get('passing_score'), '70')) || 70
 
   if (!batchId || !title) return { error: 'Batch and assessment title are required.' }
   if (maxScore <= 0 || passingScore < 0 || passingScore > maxScore) {
     return { error: 'Score ranges are invalid.' }
+  }
+
+  if (isUploadFile(questionFileInput)) {
+    try {
+      questionFileName = await uploadTrainingDocument(admin, questionFileInput, `assessments/${batchId}`)
+    } catch (error: any) {
+      return { error: `Question file upload failed: ${error.message}` }
+    }
   }
 
   const { error } = await admin.from('training_assessment_setups').insert({
@@ -955,7 +1012,8 @@ export async function createProjectEvaluation(formData: FormData): Promise<ApiRe
   const targetUserId = asRequiredString(formData.get('user_id'))
   const projectTitle = asRequiredString(formData.get('project_title'))
   const score = Number(asRequiredString(formData.get('score'), '0'))
-  const evidenceFileName = asOptionalString(formData.get('evidence_file_name'))
+  const evidenceFileInput = formData.get('evidence_file')
+  let evidenceFileName = asOptionalString(formData.get('evidence_file_name'))
   const remarks = asOptionalString(formData.get('remarks'))
 
   if (!batchId || !targetUserId || !projectTitle) return { error: 'Batch, candidate, and project title are required.' }
@@ -974,6 +1032,14 @@ export async function createProjectEvaluation(formData: FormData): Promise<ApiRe
       .eq('id', batchId)
       .single()
     if (!assignment && batch?.trainer_id !== userId) return { error: 'Trainer access is limited to assigned batches.' }
+  }
+
+  if (isUploadFile(evidenceFileInput)) {
+    try {
+      evidenceFileName = await uploadTrainingDocument(admin, evidenceFileInput, `projects/${batchId}/${targetUserId}`)
+    } catch (error: any) {
+      return { error: `Evidence file upload failed: ${error.message}` }
+    }
   }
 
   const { error } = await admin.from('training_project_evaluations').upsert({
@@ -1046,7 +1112,7 @@ export async function runTrainingAutomation(formData: FormData): Promise<ApiResp
             cutoffTime: settings.attendanceCutoffTime,
             coordinatorName: coord.full_name || coord.email,
           })
-          const emailResult = await sendEmail({ to: coord.email, subject: `⚠️ Attendance Cut-off Missed — ${session.title}`, html })
+          const emailResult = await sendEmail({ to: coord.email, subject: `Attendance Cut-off Missed - ${session.title}`, html })
           if (notif?.id) {
             await admin.from('training_notification_dispatch_log').insert({
               notification_id: notif.id,
@@ -1097,7 +1163,7 @@ export async function runTrainingAutomation(formData: FormData): Promise<ApiResp
           scheduledAt: new Date(setup.scheduled_at).toLocaleString(),
           candidateName: profile.full_name || profile.email,
         })
-        const emailResult = await sendEmail({ to: profile.email, subject: `📋 Upcoming Assessment: ${setup.title}`, html })
+        const emailResult = await sendEmail({ to: profile.email, subject: `Upcoming Assessment: ${setup.title}`, html })
         if (notif?.id) {
           await admin.from('training_notification_dispatch_log').insert({
             notification_id: notif.id,
@@ -1166,7 +1232,7 @@ export async function runTrainingAutomation(formData: FormData): Promise<ApiResp
               absenceDays: settings.absenceAlertDays,
               coordinatorName: coord.full_name || coord.email,
             })
-            const emailResult = await sendEmail({ to: coord.email, subject: `🚨 Absence Alert — ${memberProfile?.full_name || memberProfile?.email}`, html })
+            const emailResult = await sendEmail({ to: coord.email, subject: `Absence Alert - ${memberProfile?.full_name || memberProfile?.email}`, html })
             if (notif?.id) {
               await admin.from('training_notification_dispatch_log').insert({
                 notification_id: notif.id,
@@ -1219,7 +1285,7 @@ export async function runTrainingAutomation(formData: FormData): Promise<ApiResp
           closesAt: new Date(window.closes_at).toLocaleString(),
           candidateName: profile.full_name || profile.email,
         })
-        const emailResult = await sendEmail({ to: profile.email, subject: `💬 Feedback Requested — ${(window.batch as any)?.title || window.title}`, html })
+        const emailResult = await sendEmail({ to: profile.email, subject: `Feedback Requested - ${(window.batch as any)?.title || window.title}`, html })
         if (notif?.id) {
           await admin.from('training_notification_dispatch_log').insert({
             notification_id: notif.id,
@@ -1323,7 +1389,7 @@ export async function createFeedbackWindow(formData: FormData): Promise<ApiRespo
     })
     const emailResult = await sendEmail({
       to: profile.email,
-      subject: `💬 Feedback Requested — ${batchInfo?.title || title}`,
+      subject: `Feedback Requested - ${batchInfo?.title || title}`,
       html,
     })
     if (notification?.id) {

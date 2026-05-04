@@ -1,12 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { requireTrainingStaffForApi } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail, buildUploadConfirmationEmail } from '@/lib/email'
+import { canTrainerAccessBatch } from '@/lib/training-access'
 
 export async function POST(request: NextRequest) {
   const auth = await requireTrainingStaffForApi()
   if (auth instanceof NextResponse) return auth
-  const { userId } = auth
+  const { userId, role } = auth
 
   const supabase = await createClient()
 
@@ -15,6 +16,29 @@ export async function POST(request: NextRequest) {
 
     if (!records || !Array.isArray(records) || records.length === 0) {
       return NextResponse.json({ error: 'No records provided' }, { status: 400 })
+    }
+
+    if (role === 'trainer') {
+      if (!batchId) {
+        return NextResponse.json({ error: 'Trainer uploads must target an assigned batch.' }, { status: 403 })
+      }
+      const allowed = await canTrainerAccessBatch(batchId, userId)
+      if (!allowed) {
+        return NextResponse.json({ error: 'Trainer access is limited to assigned batches.' }, { status: 403 })
+      }
+    }
+
+    if (batchId && assessmentSetupId) {
+      const admin = createAdminClient()
+      const { data: setup } = await admin
+        .from('training_assessment_setups')
+        .select('id')
+        .eq('id', assessmentSetupId)
+        .eq('batch_id', batchId)
+        .maybeSingle()
+      if (!setup) {
+        return NextResponse.json({ error: 'Assessment setup does not belong to the selected batch.' }, { status: 400 })
+      }
     }
 
     const seenFingerprints = new Set<string>()

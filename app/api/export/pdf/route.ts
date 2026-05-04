@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { createAdminClient } from '@/lib/supabase/server'
+import { canAccessTrainingBatch } from '@/lib/training-access'
 
 /**
  * PDF export for batch reports using jsPDF + jspdf-autotable.
@@ -9,11 +10,14 @@ import { createAdminClient } from '@/lib/supabase/server'
 export async function GET(request: NextRequest) {
   const auth = await requireManagerForApi()
   if (auth instanceof NextResponse) return auth
-  const { userId } = auth
+  const { userId, role } = auth
 
   const { searchParams } = request.nextUrl
   const reportType = searchParams.get('type') || 'consolidated'
   const batchId = searchParams.get('batchId') || undefined
+  if (batchId && !(await canAccessTrainingBatch(batchId, userId, role))) {
+    return NextResponse.json({ error: 'Forbidden: batch access denied' }, { status: 403 })
+  }
 
   const admin = createAdminClient()
 
@@ -32,7 +36,7 @@ export async function GET(request: NextRequest) {
     doc.setFontSize(14)
     doc.setTextColor(255, 255, 255)
     doc.setFont('helvetica', 'bold')
-    doc.text('MAVERICK EXECUTION PLATFORM', 14, 9)
+    doc.text('SKILLTEST_AI', 14, 9)
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.text('Training Management System', 14, 15)
@@ -65,7 +69,7 @@ export async function GET(request: NextRequest) {
     admin.from('batch_members').select('batch_id, user_id, enrollment_status, profile:user_id(full_name, email, employee_id, department)').in('batch_id', batchIds),
     admin.from('training_sessions').select('id, batch_id, attendance_required, status, session_date').in('batch_id', batchIds).neq('status', 'cancelled'),
     admin.from('training_project_evaluations').select('batch_id, user_id, score').in('batch_id', batchIds),
-    admin.from('training_assessment_results').select('batch_id, candidate_email, percentage').in('batch_id', batchIds),
+    admin.from('assessment_results').select('batch_id, candidate_email, percentage').in('batch_id', batchIds),
     admin.from('training_feedback').select('batch_id, user_id, rating, sentiment, content_quality_rating, trainer_effectiveness_rating').in('batch_id', batchIds),
   ])
 

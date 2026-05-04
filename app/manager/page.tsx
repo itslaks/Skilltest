@@ -190,7 +190,7 @@ export default async function ManagerDashboard() {
               <div className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase ${
                 role === 'trainer' ? 'bg-violet-500/30 text-violet-200' : 'bg-white/20'
               }`}>
-                {role === 'trainer' ? '👨‍🏫 Trainer Dashboard' : 'Manager Dashboard'}
+                {role === 'trainer' ? 'Trainer Dashboard' : 'Manager Dashboard'}
               </div>
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">

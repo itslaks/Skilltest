@@ -42,12 +42,12 @@ export default async function ManagerReportsPage() {
 
   const { data: batches } = await admin
     .from('training_batches')
-    .select('id, title, status')
+    .select('id, title, status, trainer:trainer_id(id, full_name, email)')
     .or(`created_by.eq.${userId},coordinator_id.eq.${userId},trainer_id.eq.${userId}`)
     .order('created_at', { ascending: false })
 
   const batchIds = (batches || []).map((batch: any) => batch.id)
-  const [membersRes, attendanceRes, projectRes, attemptsRes] = await Promise.all([
+  const [membersRes, attendanceRes, projectRes, attemptsRes, feedbackRes, batchTrainersRes, importResultsRes] = await Promise.all([
     batchIds.length
       ? admin
           .from('batch_members')
@@ -62,7 +62,7 @@ export default async function ManagerReportsPage() {
     batchIds.length
       ? admin
           .from('training_project_evaluations')
-          .select('user_id, score')
+          .select('batch_id, user_id, score')
           .in('batch_id', batchIds)
       : Promise.resolve({ data: [] }),
     batchIds.length
@@ -72,12 +72,33 @@ export default async function ManagerReportsPage() {
           .in('quizzes.batch_id', batchIds)
           .eq('status', 'completed')
       : Promise.resolve({ data: [] }),
+    batchIds.length
+      ? admin
+          .from('training_feedback')
+          .select('trainer_effectiveness_rating, batch_id')
+          .in('batch_id', batchIds)
+      : Promise.resolve({ data: [] }),
+    batchIds.length
+      ? admin
+          .from('training_batch_trainers')
+          .select('batch_id, trainer:trainer_id(id, full_name, email)')
+          .in('batch_id', batchIds)
+      : Promise.resolve({ data: [] }),
+    batchIds.length
+      ? admin
+          .from('assessment_results')
+          .select('batch_id, percentage, candidate_score')
+          .in('batch_id', batchIds)
+      : Promise.resolve({ data: [] }),
   ])
 
   const members = membersRes.data || []
   const trainingAttendance = attendanceRes.data || []
   const projectEvaluations = projectRes.data || []
   const trainingAttempts = attemptsRes.data || []
+  const trainingFeedback = feedbackRes.data || []
+  const batchTrainersList = batchTrainersRes.data || []
+  const importedAssessments = importResultsRes.data || []
   const statusCounts = {
     discontinued: members.filter((member: any) => ['discontinued', 'dropped'].includes(member.enrollment_status)).length,
     notCleared: members.filter((member: any) => member.enrollment_status === 'not_cleared').length,
@@ -86,6 +107,7 @@ export default async function ManagerReportsPage() {
   }
 
   const topperRows = buildTopperRows(members, trainingAttempts, projectEvaluations, trainingAttendance, governance).slice(0, 10)
+  const trainerMetrics = buildTrainerMetrics(batches || [], batchTrainersList, trainingAttendance, trainingAttempts, trainingFeedback, projectEvaluations, importedAssessments)
 
   // Get per-quiz attempt data
   const quizIds = quizzes.map((q: any) => q.id)
@@ -130,7 +152,7 @@ export default async function ManagerReportsPage() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Maverick TMS Report Center</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">skilltest_ai Report Center</h1>
           <p className="text-muted-foreground mt-1">Attendance, assessment, feedback, topper, and consolidated batch reporting</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -249,6 +271,51 @@ export default async function ManagerReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Trainer Performance Metrics */}
+      <Card className="border-indigo-100 bg-indigo-50/30 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-indigo-950">
+            <Users className="h-5 w-5 text-indigo-600" />
+            Trainer Performance Metrics
+          </CardTitle>
+          <CardDescription className="text-indigo-800">
+            Aggregated performance metrics for trainers across your visible batches.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {trainerMetrics.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-indigo-200 bg-white/70 p-6 text-center text-sm text-indigo-800">No trainer data available yet.</p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {trainerMetrics.map(trainer => (
+                <div key={trainer.id} className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
+                  <p className="font-semibold text-indigo-950 truncate" title={trainer.name}>{trainer.name}</p>
+                  <p className="text-xs text-indigo-600/70 truncate mb-3">{trainer.email}</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-lg bg-indigo-50 p-2 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-indigo-600/70 mb-1">Batches</p>
+                      <p className="text-lg font-bold text-indigo-950">{trainer.batchesCount}</p>
+                    </div>
+                    <div className="rounded-lg bg-indigo-50 p-2 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-indigo-600/70 mb-1">Attendance</p>
+                      <p className="text-lg font-bold text-indigo-950">{trainer.attendanceRate}%</p>
+                    </div>
+                    <div className="rounded-lg bg-indigo-50 p-2 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-indigo-600/70 mb-1">Avg Score</p>
+                      <p className="text-lg font-bold text-indigo-950">{trainer.avgScore}%</p>
+                    </div>
+                    <div className="rounded-lg bg-indigo-50 p-2 text-center">
+                      <p className="text-[10px] uppercase tracking-wider text-indigo-600/70 mb-1">Feedback</p>
+                      <p className="text-lg font-bold text-indigo-950">{trainer.avgFeedback}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Overview Cards */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -539,3 +606,79 @@ function buildTopperRows(
     }
   }).sort((a, b) => b.topperScore - a.topperScore)
 }
+
+function buildTrainerMetrics(
+  batches: any[],
+  batchTrainersList: any[],
+  attendance: any[],
+  attempts: any[],
+  feedback: any[],
+  projectEvaluations: any[],
+  importedAssessments: any[]
+) {
+  const trainerMap = new Map<string, {
+    id: string;
+    name: string;
+    email: string;
+    batchIds: Set<string>;
+  }>()
+
+  // Collect trainers from batches (lead)
+  for (const b of batches) {
+    if (b.trainer) {
+      if (!trainerMap.has(b.trainer.id)) {
+        trainerMap.set(b.trainer.id, { id: b.trainer.id, name: b.trainer.full_name || b.trainer.email, email: b.trainer.email, batchIds: new Set() })
+      }
+      trainerMap.get(b.trainer.id)!.batchIds.add(b.id)
+    }
+  }
+
+  // Collect trainers from batchTrainersList (co-trainers)
+  for (const bt of batchTrainersList) {
+    if (bt.trainer) {
+      if (!trainerMap.has(bt.trainer.id)) {
+        trainerMap.set(bt.trainer.id, { id: bt.trainer.id, name: bt.trainer.full_name || bt.trainer.email, email: bt.trainer.email, batchIds: new Set() })
+      }
+      trainerMap.get(bt.trainer.id)!.batchIds.add(bt.batch_id)
+    }
+  }
+
+  const results = Array.from(trainerMap.values()).map(t => {
+    const bIds = Array.from(t.batchIds)
+    
+    // Attendance
+    const bAttendance = attendance.filter((a: any) => bIds.includes(a.session?.batch_id))
+    const positiveAtt = bAttendance.filter((a: any) => ['present', 'late'].includes(a.status)).length
+    const attendanceRate = bAttendance.length ? Math.round((positiveAtt / bAttendance.length) * 100) : 0
+    
+    // Assessment scores across quizzes, imported score sheets, and project evaluations
+    const bAttempts = attempts.filter((a: any) => bIds.includes(a.quizzes?.batch_id))
+    const bProjects = projectEvaluations.filter((item: any) => bIds.includes(item.batch_id))
+    const bImports = importedAssessments.filter((item: any) => bIds.includes(item.batch_id))
+    const scoreRows = [
+      ...bAttempts.map((a: any) => Number(a.score || 0)),
+      ...bProjects.map((item: any) => Number(item.score || 0)),
+      ...bImports.map((item: any) => Number(item.percentage ?? item.candidate_score ?? 0)),
+    ]
+    const avgScore = scoreRows.length ? Math.round(scoreRows.reduce((sum: number, score: number) => sum + score, 0) / scoreRows.length) : 0
+    
+    // Feedback rating
+    const bFeedback = feedback.filter((f: any) => bIds.includes(f.batch_id) && f.trainer_effectiveness_rating)
+    const avgFeedback = bFeedback.length ? (bFeedback.reduce((sum: number, f: any) => sum + Number(f.trainer_effectiveness_rating || 0), 0) / bFeedback.length).toFixed(1) : '0.0'
+    
+    // Total score (weighted average for sorting)
+    const scoreVal = avgScore * 0.4 + attendanceRate * 0.4 + (Number(avgFeedback) * 20) * 0.2
+    
+    return {
+      ...t,
+      batchesCount: bIds.length,
+      attendanceRate,
+      avgScore,
+      avgFeedback,
+      scoreVal
+    }
+  })
+
+  return results.sort((a, b) => b.scoreVal - a.scoreVal)
+}
+

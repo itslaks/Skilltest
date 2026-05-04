@@ -90,7 +90,7 @@ export function QuizAssignmentManager({ quizzes, employees, assignments, autoOpe
       if (result.error) {
         toast({ title: 'Error', description: result.error, variant: 'destructive' })
       } else {
-        toast({ title: '✅ Quiz Assigned', description: `Assigned to ${selectedEmployees.length} employee(s).` })
+        toast({ title: 'Quiz assigned', description: `Assigned to ${selectedEmployees.length} employee(s).` })
         setSelectedEmployees([])
         setIsOpen(false)
         router.refresh()

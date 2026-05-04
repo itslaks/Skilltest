@@ -111,7 +111,7 @@ export function ManagerSidebar({ profile }: ManagerSidebarProps) {
           </div>
           {!collapsed && (
             <div className="leading-none">
-              <span className="font-bold text-[15px] text-white tracking-tight">Maverick TMS</span>
+              <span className="font-bold text-[15px] text-white tracking-tight">skilltest_ai</span>
               <p className="text-[10px] text-white/30 mt-0.5 font-medium tracking-wide uppercase">
                 {profile?.role === 'trainer' ? 'Trainer Portal' : profile?.role === 'admin' ? 'Admin Console' : 'Control'}
               </p>

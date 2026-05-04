@@ -17,6 +17,9 @@ import { AttendanceImporter } from '@/components/manager/attendance-importer'
 import { AssessmentScoreImporter } from '@/components/manager/assessment-score-importer'
 import { BatchCandidateImporter } from '@/components/manager/batch-candidate-importer'
 import { DashboardSignalShowcase } from '@/components/insights/dashboard-signal-showcase'
+import { BatchComparisonChart } from '@/components/manager/batch-comparison-chart'
+import { BatchMemberStatusDropdown } from '@/components/manager/batch-member-status-dropdown'
+import { createAdminClient } from '@/lib/supabase/server'
 import {
   BellRing,
   CalendarDays,
@@ -160,6 +163,100 @@ export default async function ManagerOperationsPage() {
     assessmentsByBatch.set(item.batch_id, list)
   }
 
+  const admin = createAdminClient()
+  const batchIds = batches.map((b: any) => b.id)
+  
+  const { data: attempts } = batchIds.length > 0 
+    ? await admin.from('quiz_attempts').select('user_id, score, quizzes!inner(batch_id, passing_score)').in('quizzes.batch_id', batchIds).eq('status', 'completed')
+    : { data: [] }
+  const quizAttempts = attempts || []
+  
+  const { data: results } = batchIds.length > 0
+    ? await admin.from('assessment_results').select('candidate_email, candidate_score, percentage, batch_id, assessment_setup_id').in('batch_id', batchIds)
+    : { data: [] }
+  const importedAssessments = results || []
+  const assessmentSetupById = new Map(assessmentSetups.map((setup: any) => [setup.id, setup]))
+
+  // Combine projectEvaluations and quizAttempts to calculate batch assessment average
+  const batchComparisonData = batches.map((b: any) => {
+    const bMembers = membersByBatch.get(b.id) || []
+    
+    // Attendance calculation
+    const bSessions = sessions.filter((s: any) => s.batch_id === b.id)
+    const bSessionIds = bSessions.map((s: any) => s.id)
+    const bAttendance = attendance.filter((a: any) => bSessionIds.includes(a.session_id))
+    const posAtt = bAttendance.filter((a: any) => ['present', 'late'].includes(a.status)).length
+    const attRate = bAttendance.length ? Math.round((posAtt / bAttendance.length) * 100) : 0
+    
+    // Assessment calculation
+    const bQuizAttempts = quizAttempts.filter((a: any) => a.quizzes?.batch_id === b.id)
+    const bProjects = projectEvaluations.filter((p: any) => p.batch_id === b.id)
+    const bImports = importedAssessments.filter((a: any) => a.batch_id === b.id)
+    const bQuizScores = bQuizAttempts.map((a: any) => Number(a.score || 0))
+    const bProjScores = bProjects.map((p: any) => Number(p.score || 0))
+    const bImportScores = bImports.map((a: any) => Number(a.percentage ?? a.candidate_score ?? 0))
+    
+    const allScores = [...bQuizScores, ...bProjScores, ...bImportScores]
+    const asmtRate = allScores.length ? Math.round(allScores.reduce((sum: number, s: number) => sum + s, 0) / allScores.length) : 0
+    const clearanceRows = [
+      ...bQuizAttempts.map((attempt: any) => Number(attempt.score || 0) >= Number(attempt.quizzes?.passing_score || 70)),
+      ...bProjects.map((project: any) => Number(project.score || 0) >= 70),
+      ...bImports.map((result: any) => {
+        const setup = assessmentSetupById.get(result.assessment_setup_id) as any
+        const threshold = setup ? Math.round((Number(setup.passing_score || 70) / Math.max(1, Number(setup.max_score || 100))) * 100) : 70
+        return Number(result.percentage ?? result.candidate_score ?? 0) >= threshold
+      }),
+    ]
+    const clearanceRate = clearanceRows.length ? Math.round((clearanceRows.filter(Boolean).length / clearanceRows.length) * 100) : 0
+    
+    return {
+      id: b.id,
+      name: b.title,
+      attendance: attRate,
+      assessment: asmtRate,
+      clearance: clearanceRate,
+      learners: bMembers.length
+    }
+  }).filter((b: any) => {
+    const orig = batches.find((orig: any) => orig.id === b.id)
+    return orig && ['running', 'completed'].includes(orig.status)
+  })
+
+  const overallAssessmentClearance = batchComparisonData.length
+    ? Math.round(batchComparisonData.reduce((sum: number, batch: any) => sum + batch.clearance, 0) / batchComparisonData.length)
+    : 0
+
+  const scheduleTimeline = [
+    ...sessions.map((session: any) => ({
+      id: `session-${session.id}`,
+      type: 'Session',
+      title: session.title,
+      batchTitle: session.batch?.title || 'Batch',
+      date: session.session_date,
+      meta: `${session.mode} - ${session.trainer?.full_name || session.trainer?.email || 'Trainer TBD'}`,
+      status: session.status,
+    })),
+    ...assessmentSetups.filter((setup: any) => setup.scheduled_at).map((setup: any) => ({
+      id: `assessment-${setup.id}`,
+      type: 'Assessment',
+      title: setup.title,
+      batchTitle: batches.find((batch: any) => batch.id === setup.batch_id)?.title || 'Batch',
+      date: setup.scheduled_at,
+      meta: `${String(setup.assessment_type).replace('_', ' ')} - pass ${setup.passing_score}/${setup.max_score}`,
+      status: setup.status,
+    })),
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 10)
+
+  const feedbackAnalytics = {
+    total: feedback.length,
+    positive: feedback.filter((item: any) => item.sentiment === 'positive').length,
+    neutral: feedback.filter((item: any) => item.sentiment === 'neutral').length,
+    negative: feedback.filter((item: any) => item.sentiment === 'negative').length,
+    avgRating: feedback.length ? (feedback.reduce((sum: number, item: any) => sum + Number(item.rating || 0), 0) / feedback.length).toFixed(1) : '0.0',
+    avgContent: feedback.length ? (feedback.reduce((sum: number, item: any) => sum + Number(item.content_quality_rating || item.rating || 0), 0) / feedback.length).toFixed(1) : '0.0',
+    avgTrainer: feedback.length ? (feedback.reduce((sum: number, item: any) => sum + Number(item.trainer_effectiveness_rating || item.rating || 0), 0) / feedback.length).toFixed(1) : '0.0',
+  }
+
   return (
     <div className="space-y-8">
       <section className="rounded-[2rem] border border-zinc-900 bg-black p-6 text-white shadow-[0_40px_120px_rgba(0,0,0,0.55)] md:p-8 dashboard-grid-bg">
@@ -190,7 +287,7 @@ export default async function ManagerOperationsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <ActionTile
           title="Attendance due"
           value={`${summary.attendanceDueToday}`}
@@ -208,6 +305,12 @@ export default async function ManagerOperationsPage() {
           value={`${summary.remainingCandidates}`}
           detail={`${summary.discontinuedCandidates} discontinued, ${summary.notClearedCandidates} not cleared, ${summary.offeredCandidates} offered/onboarded signals tracked.`}
           tone="blue"
+        />
+        <ActionTile
+          title="Assessment clearance"
+          value={`${overallAssessmentClearance}%`}
+          detail="Aggregate pass signal across quiz, imported assessment, and project evaluation records."
+          tone="emerald"
         />
         <div className="rounded-[1.5rem] border border-zinc-200 bg-black p-5 text-white shadow-sm">
           <div className="flex items-center gap-2 text-sm font-semibold">
@@ -562,6 +665,10 @@ export default async function ManagerOperationsPage() {
                   <input name="question_file_name" className="h-11 rounded-xl border border-zinc-200 px-3" placeholder="sprint-2-question-bank.xlsx" />
                 </label>
               </div>
+              <label className="grid gap-2 text-sm">
+                <span className="font-medium">Upload question file</span>
+                <input name="question_file" type="file" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx" className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-sm" />
+              </label>
               <Button type="submit" className="w-fit rounded-full bg-black text-white hover:bg-zinc-800">Create assessment setup</Button>
             </form>
           </CardContent>
@@ -608,6 +715,10 @@ export default async function ManagerOperationsPage() {
                 </label>
               </div>
               <label className="grid gap-2 text-sm">
+                <span className="font-medium">Upload evidence file</span>
+                <input name="evidence_file" type="file" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx,.png,.jpg,.jpeg,.zip" className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-3 py-3 text-sm" />
+              </label>
+              <label className="grid gap-2 text-sm">
                 <span className="font-medium">Remarks</span>
                 <textarea name="remarks" rows={3} className="rounded-xl border border-zinc-200 px-3 py-3" placeholder="Evaluation notes, strengths, and improvement actions." />
               </label>
@@ -650,6 +761,12 @@ export default async function ManagerOperationsPage() {
         </CardContent>
       </Card>
       ) : null}
+
+      <ScheduleTimeline items={scheduleTimeline} />
+
+      {batchComparisonData.length > 0 && (
+        <BatchComparisonChart data={batchComparisonData} />
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <Card className="border-zinc-200 shadow-sm spotlight-card">
@@ -743,10 +860,14 @@ export default async function ManagerOperationsPage() {
                       <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">Learner cohort</p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {batchMembers.length > 0 ? batchMembers.slice(0, 8).map((member: any) => (
-                            <Badge key={member.id} variant="outline" className="rounded-full bg-white">
-                              {member.profile?.full_name || member.profile?.email}
-                            </Badge>
+                          {batchMembers.length > 0 ? batchMembers.map((member: any) => (
+                            <BatchMemberStatusDropdown
+                              key={member.id}
+                              memberId={member.id}
+                              currentStatus={member.enrollment_status}
+                              name={member.profile?.full_name || member.profile?.email || 'Unknown'}
+                              canEdit={canCoordinate}
+                            />
                           )) : <p className="text-sm text-zinc-500">No learners added yet.</p>}
                         </div>
                       </div>
@@ -756,6 +877,9 @@ export default async function ManagerOperationsPage() {
                           {batchAssessments.length > 0 ? batchAssessments.map((setup: any) => (
                             <Badge key={setup.id} variant="outline" className="rounded-full bg-white">
                               {setup.title} - {setup.assessment_type.replace('_', ' ')}
+                              {setup.question_file_name ? (
+                                <EvidenceLink path={setup.question_file_name} label="file" />
+                              ) : null}
                             </Badge>
                           )) : batchQuizzes.length > 0 ? batchQuizzes.map((quiz: any) => (
                             <Badge key={quiz.id} variant="outline" className="rounded-full bg-white">
@@ -778,6 +902,8 @@ export default async function ManagerOperationsPage() {
             <CardDescription>Recent learner sentiment and communication activity tied to training execution.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <FeedbackAnalyticsPanel analytics={feedbackAnalytics} />
+
             <div className="grid gap-3 sm:grid-cols-2">
               <MiniMetric label="Notifications sent" value={`${summary.notificationsSent}`} />
               <MiniMetric label="Negative feedback" value={`${summary.negativeFeedbackCount}`} />
@@ -875,7 +1001,19 @@ export default async function ManagerOperationsPage() {
             <EmptyState text="No sessions scheduled yet. Attendance controls appear here after a session is created." />
           ) : (
             sessions.slice(0, 6).map((session: any) => {
-              const records = attendanceBySession.get(session.id) || []
+              const existingRecords = attendanceBySession.get(session.id) || []
+              const existingByUser = new Map(existingRecords.map((record: any) => [record.user_id, record]))
+              const roster = membersByBatch.get(session.batch_id) || []
+              const records = roster.length
+                ? roster.map((member: any) => existingByUser.get(member.user_id) || {
+                    id: null,
+                    session_id: session.id,
+                    user_id: member.user_id,
+                    status: 'absent',
+                    check_in_time: null,
+                    profile: member.profile,
+                  })
+                : existingRecords
               return (
                 <div key={session.id} className="rounded-[1.5rem] border border-zinc-200 p-5">
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -896,7 +1034,7 @@ export default async function ManagerOperationsPage() {
 
                   <div className="mt-4 space-y-3">
                     {records.length === 0 ? (
-                      <p className="text-sm text-zinc-500">Learners will appear here once a batch is linked to this session.</p>
+                      <p className="text-sm text-zinc-500">Add learners to this batch to begin manual attendance marking.</p>
                     ) : (
                       records.map((record: any) => (
                         <div key={record.id || `${record.session_id}-${record.user_id}`} className={`rounded-2xl border p-4 ${toneForAttendance(record.status)}`}>
@@ -966,6 +1104,7 @@ export default async function ManagerOperationsPage() {
             title: item.trainee?.full_name || item.trainee?.email || 'Candidate',
             body: `${item.project_title} - ${item.score}/100`,
             meta: item.evidence_file_name || 'Evidence optional',
+            href: item.evidence_file_name?.startsWith('training-evidence/') ? `/api/training/evidence?path=${encodeURIComponent(item.evidence_file_name)}` : null,
           }))}
         />
         <AuditPanel
@@ -1014,11 +1153,12 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
   )
 }
 
-function ActionTile({ title, value, detail, tone }: { title: string; value: string; detail: string; tone: 'rose' | 'amber' | 'blue' }) {
+function ActionTile({ title, value, detail, tone }: { title: string; value: string; detail: string; tone: 'rose' | 'amber' | 'blue' | 'emerald' }) {
   const tones = {
     rose: 'border-rose-100 bg-rose-50 text-rose-950',
     amber: 'border-amber-100 bg-amber-50 text-amber-950',
     blue: 'border-blue-100 bg-blue-50 text-blue-950',
+    emerald: 'border-emerald-100 bg-emerald-50 text-emerald-950',
   }
 
   return (
@@ -1026,6 +1166,78 @@ function ActionTile({ title, value, detail, tone }: { title: string; value: stri
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60">{title}</p>
       <p className="mt-3 text-3xl font-semibold">{value}</p>
       <p className="mt-2 text-sm leading-relaxed opacity-75">{detail}</p>
+    </div>
+  )
+}
+
+function ScheduleTimeline({ items }: { items: Array<{ id: string; type: string; title: string; batchTitle: string; date: string; meta: string; status: string }> }) {
+  return (
+    <Card className="border-zinc-200 shadow-sm spotlight-card">
+      <CardHeader>
+        <CardTitle>Batch Schedule Timeline</CardTitle>
+        <CardDescription>One operating rail for sessions, assessment dates, trainer ownership, and lifecycle status.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {items.length === 0 ? (
+          <EmptyState text="No scheduled sessions or assessments yet." />
+        ) : (
+          <div className="relative grid gap-4 before:absolute before:left-[1.15rem] before:top-3 before:h-[calc(100%-1.5rem)] before:w-px before:bg-zinc-200">
+            {items.map((item) => (
+              <div key={item.id} className="relative grid gap-3 pl-10 md:grid-cols-[11rem_1fr_auto] md:items-center">
+                <div className="absolute left-0 top-1 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-xs font-bold text-zinc-700">
+                  {item.type === 'Assessment' ? 'A' : 'S'}
+                </div>
+                <div className="text-sm">
+                  <p className="font-semibold text-zinc-900">{new Date(item.date).toLocaleDateString()}</p>
+                  <p className="text-xs text-zinc-500">{new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+                <div className="min-w-0 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{item.type}</Badge>
+                    <Badge variant="outline" className="capitalize">{item.status}</Badge>
+                  </div>
+                  <p className="mt-2 font-semibold text-zinc-950">{item.title}</p>
+                  <p className="mt-1 text-sm text-zinc-500">{item.batchTitle} - {item.meta}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function FeedbackAnalyticsPanel({ analytics }: { analytics: { total: number; positive: number; neutral: number; negative: number; avgRating: string; avgContent: string; avgTrainer: string } }) {
+  const rows = [
+    { label: 'Positive', value: analytics.positive, tone: 'bg-emerald-500' },
+    { label: 'Neutral', value: analytics.neutral, tone: 'bg-blue-500' },
+    { label: 'Negative', value: analytics.negative, tone: 'bg-rose-500' },
+  ]
+
+  return (
+    <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <MiniMetric label="Avg rating" value={analytics.avgRating} />
+        <MiniMetric label="Content quality" value={analytics.avgContent} />
+        <MiniMetric label="Trainer effectiveness" value={analytics.avgTrainer} />
+      </div>
+      <div className="mt-4 space-y-3">
+        {rows.map((row) => {
+          const width = analytics.total ? Math.round((row.value / analytics.total) * 100) : 0
+          return (
+            <div key={row.label} className="grid gap-2">
+              <div className="flex items-center justify-between text-xs font-medium text-zinc-600">
+                <span>{row.label}</span>
+                <span>{row.value} / {analytics.total}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white">
+                <div className={`h-full rounded-full ${row.tone}`} style={{ width: `${width}%` }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -1039,7 +1251,19 @@ function EmptyState({ text, compact = false }: { text: string; compact?: boolean
   )
 }
 
-function AuditPanel({ title, empty, items }: { title: string; empty: string; items: Array<{ id: string; title: string; body: string; meta: string }> }) {
+function EvidenceLink({ path, label }: { path: string; label: string }) {
+  if (!path.startsWith('training-evidence/')) return null
+  return (
+    <a
+      href={`/api/training/evidence?path=${encodeURIComponent(path)}`}
+      className="ml-2 underline decoration-zinc-400 underline-offset-2"
+    >
+      {label}
+    </a>
+  )
+}
+
+function AuditPanel({ title, empty, items }: { title: string; empty: string; items: Array<{ id: string; title: string; body: string; meta: string; href?: string | null }> }) {
   return (
     <Card className="border-zinc-200 shadow-sm">
       <CardHeader>
@@ -1052,7 +1276,9 @@ function AuditPanel({ title, empty, items }: { title: string; empty: string; ite
           <div key={item.id} className="rounded-2xl border border-zinc-200 p-4">
             <p className="font-medium capitalize">{item.title}</p>
             <p className="mt-1 text-sm text-zinc-500">{item.body}</p>
-            <p className="mt-2 text-xs text-zinc-400">{item.meta}</p>
+            <p className="mt-2 text-xs text-zinc-400">
+              {item.href ? <a href={item.href} className="underline underline-offset-2">Open evidence file</a> : item.meta}
+            </p>
           </div>
         ))}
       </CardContent>

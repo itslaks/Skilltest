@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { createAdminClient } from '@/lib/supabase/server'
+import { canAccessTrainingBatch } from '@/lib/training-access'
 import * as XLSX from 'xlsx'
 
 export async function GET(request: NextRequest) {
   const auth = await requireManagerForApi()
   if (auth instanceof NextResponse) return auth
+  const { userId, role } = auth
 
   const batchId = request.nextUrl.searchParams.get('batchId')
   if (!batchId) return NextResponse.json({ error: 'batchId is required' }, { status: 400 })
+  if (!(await canAccessTrainingBatch(batchId, userId, role))) {
+    return NextResponse.json({ error: 'Forbidden: batch access denied' }, { status: 403 })
+  }
 
   const admin = createAdminClient()
 
@@ -39,7 +44,7 @@ export async function GET(request: NextRequest) {
 
   // Also pull from assessment_import results for this batch
   const { data: importResults } = await admin
-    .from('training_assessment_results')
+    .from('assessment_results')
     .select('*')
     .eq('batch_id', batchId)
     .order('appeared_on', { ascending: false })
@@ -113,8 +118,9 @@ export async function GET(request: NextRequest) {
     File_Name: u.file_name,
     Assessment_Type: u.assessment_type || '',
     Total_Records: u.total_records,
-    Successful: u.inserted_records,
-    Errors: u.error_count,
+    Successful: u.successful_records,
+    Errors: u.failed_records,
+    Duplicates: u.duplicate_records || 0,
     Uploaded_At: new Date(u.created_at).toLocaleString(),
   }))
   if (uploadLogRows.length) {

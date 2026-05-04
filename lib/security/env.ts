@@ -9,15 +9,46 @@
 
 // ─── Server-side env vars (never sent to client) ──────────────────────
 
+const PLACEHOLDER_VALUES = new Set([
+  'your-supabase-url',
+  'your_supabase_project_url_here',
+  'your-supabase-anon-key',
+  'your_supabase_anon_key_here',
+  'your-supabase-service-role-key',
+  'your_service_role_key_here',
+])
+
+function isHttpUrl(value: string | undefined): value is string {
+  if (!value || PLACEHOLDER_VALUES.has(value.trim())) return false
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function isRealKey(value: string | undefined): value is string {
+  return Boolean(value && !PLACEHOLDER_VALUES.has(value.trim()))
+}
+
+export function isSupabaseConfigured(): boolean {
+  return isHttpUrl(process.env.NEXT_PUBLIC_SUPABASE_URL) && isRealKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+}
+
+export function isSupabaseAdminConfigured(): boolean {
+  return isSupabaseConfigured() && isRealKey(process.env.SUPABASE_SERVICE_ROLE_KEY)
+}
+
 /**
  * Returns the Supabase URL (public, safe for client).
  */
 export function getSupabaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!url) {
+  if (!isHttpUrl(url)) {
     throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL environment variable. ' +
-        'Set it in your .env.local file or deployment environment.'
+      'Invalid NEXT_PUBLIC_SUPABASE_URL environment variable. ' +
+        'Set it to a real http(s) Supabase project URL in .env.local.'
     )
   }
   return url
@@ -28,10 +59,10 @@ export function getSupabaseUrl(): string {
  */
 export function getSupabaseAnonKey(): string {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!key) {
+  if (!isRealKey(key)) {
     throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable. ' +
-        'Set it in your .env.local file or deployment environment.'
+      'Invalid NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable. ' +
+        'Set it to a real Supabase anon key in .env.local.'
     )
   }
   return key
@@ -43,9 +74,9 @@ export function getSupabaseAnonKey(): string {
  */
 export function getSupabaseServiceRoleKey(): string {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!key) {
+  if (!isRealKey(key)) {
     throw new Error(
-      'Missing SUPABASE_SERVICE_ROLE_KEY environment variable. ' +
+      'Invalid SUPABASE_SERVICE_ROLE_KEY environment variable. ' +
         'This is required for server-side admin operations.'
     )
   }
@@ -97,7 +128,7 @@ export function validateRequiredEnvVars(): void {
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   ]
 
-  const missing = required.filter((key) => !process.env[key])
+  const missing = required.filter((key) => key === 'NEXT_PUBLIC_SUPABASE_URL' ? !isHttpUrl(process.env[key]) : !isRealKey(process.env[key]))
 
   if (missing.length > 0) {
     console.error(

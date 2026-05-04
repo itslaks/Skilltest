@@ -20,6 +20,7 @@ function LoginContent() {
   const [showPassword, setShowPassword] = useState(false)
   const resetSuccess = searchParams.get('reset') === 'success'
   const redirectTo = searchParams.get('redirect')
+  const setupRequired = searchParams.get('setup') === 'supabase'
 
   function handleSignIn(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -136,6 +137,12 @@ function LoginContent() {
               <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>Your password was updated. Sign in with your new password.</span>
+              </div>
+            )}
+            {setupRequired && (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>Supabase is not configured yet. Add real values in .env.local and restart the dev server before signing in.</span>
               </div>
             )}
             {error && (

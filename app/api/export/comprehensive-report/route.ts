@@ -24,7 +24,7 @@ export async function GET() {
         admin.from('batch_members').select('batch_id, user_id, enrollment_status, support_status, joined_at, profile:user_id(full_name, email, employee_id, department)').in('batch_id', batchIds),
         admin.from('training_sessions').select('id, batch_id, attendance_required, status, session_date, mode').in('batch_id', batchIds),
         admin.from('training_project_evaluations').select('batch_id, user_id, score, project_title').in('batch_id', batchIds),
-        admin.from('training_assessment_results').select('batch_id, candidate_email, percentage, test_name, candidate_id').in('batch_id', batchIds),
+        admin.from('assessment_results').select('batch_id, candidate_email, percentage, test_name, candidate_id').in('batch_id', batchIds),
         admin.from('training_feedback').select('batch_id, user_id, rating, sentiment, content_quality_rating, trainer_effectiveness_rating').in('batch_id', batchIds),
         admin.from('training_notifications').select('batch_id, delivery_status, channel, created_at').in('batch_id', batchIds).order('created_at', { ascending: false }),
       ])

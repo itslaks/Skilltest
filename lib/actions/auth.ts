@@ -10,7 +10,7 @@ import {
   magicLinkSchema,
   updateProfileSchema,
 } from '@/lib/security/validation'
-import { getAuthRedirectUrl, getSiteUrl } from '@/lib/security/env'
+import { getAuthRedirectUrl, getSiteUrl, isSupabaseConfigured, isSupabaseAdminConfigured } from '@/lib/security/env'
 import { revalidatePath } from 'next/cache'
 
 export async function signUp(formData: FormData) {
@@ -21,6 +21,9 @@ export async function signUp(formData: FormData) {
   }
 
   const { email, password, fullName, employeeId, department, role } = parsed.data
+  if (!isSupabaseConfigured() || !isSupabaseAdminConfigured()) {
+    return { error: 'Supabase is not configured. Add real Supabase URL, anon key, and service role key in .env.local, then restart the dev server.' }
+  }
 
   // Determine approval status:
   // trainers need admin approval; employees get instant access
@@ -85,6 +88,10 @@ export async function signIn(formData: FormData) {
   // Support shorthand for admin
   if (email.toLowerCase() === 'admin' || email.toLowerCase() === 'manager') {
     email = 'admin@hexaware.com'
+  }
+
+  if (!isSupabaseConfigured() || !isSupabaseAdminConfigured()) {
+    return { error: 'Supabase is not configured. Add real Supabase URL, anon key, and service role key in .env.local, then restart the dev server.' }
   }
 
   const supabase = await createClient()

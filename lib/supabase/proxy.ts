@@ -1,8 +1,23 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-import { getSupabaseUrl, getSupabaseAnonKey } from '@/lib/security/env'
+import { getSupabaseUrl, getSupabaseAnonKey, isSupabaseConfigured } from '@/lib/security/env'
 
 export async function updateSession(request: NextRequest) {
+  if (!isSupabaseConfigured()) {
+    const pathname = request.nextUrl.pathname
+    const isProtectedRoute = pathname.startsWith('/employee') || 
+                             pathname.startsWith('/manager') || 
+                             pathname.startsWith('/admin')
+    if (isProtectedRoute) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/login'
+      url.searchParams.set('setup', 'supabase')
+      url.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(url)
+    }
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })

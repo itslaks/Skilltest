@@ -119,7 +119,7 @@ export default function DemoManagerLeaderboard() {
           Enhanced Manager Leaderboard Dashboard
         </h1>
         <p className="text-muted-foreground">
-          ✅ Fixed: Leaderboard now shows all completion data • Export functionality • Real-time updates • Who finished first tracking
+          Fixed: Leaderboard now shows all completion data, export functionality, real-time updates, and who finished first tracking.
         </p>
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-4xl mx-auto">
           <p className="text-green-800 font-medium">

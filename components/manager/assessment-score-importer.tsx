@@ -21,6 +21,7 @@ export function AssessmentScoreImporter({
   const [rows, setRows] = useState<Record<string, any>[] | null>(null)
   const [fileName, setFileName] = useState('')
   const [message, setMessage] = useState('')
+  const [uploadErrors, setUploadErrors] = useState<Array<{ row?: number; batch?: number; error: string; email?: string }>>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -29,6 +30,7 @@ export function AssessmentScoreImporter({
   function readFile(file: File) {
     setError('')
     setMessage('')
+    setUploadErrors([])
     setFileName(file.name)
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -66,6 +68,7 @@ export function AssessmentScoreImporter({
       const payload = await response.json()
       if (!response.ok) throw new Error(payload.error || 'Assessment upload failed.')
       setMessage(`${payload.insertedRecords}/${payload.totalRecords} assessment rows imported. ${(payload.errors || []).length} row(s) need review.`)
+      setUploadErrors(payload.errors || [])
       setRows(null)
     } catch (err: any) {
       setError(err.message || 'Assessment upload failed.')
@@ -127,7 +130,19 @@ export function AssessmentScoreImporter({
         </div>
       ) : null}
 
-      {message ? <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"><CheckCircle2 className="h-4 w-4" />{message}</div> : null}
+      {message ? (
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+          <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" />{message}</div>
+          {uploadErrors.length ? (
+            <div className="mt-2 space-y-1 text-xs text-rose-700">
+              {uploadErrors.slice(0, 8).map((item, index) => (
+                <p key={`${item.row || item.batch || index}-${item.error}`}>{item.row ? `Row ${item.row}` : item.batch !== undefined ? `Batch ${item.batch}` : 'Upload'}: {item.error}{item.email ? ` - ${item.email}` : ''}</p>
+              ))}
+              {uploadErrors.length > 8 ? <p>{uploadErrors.length - 8} more row issue(s) are available in the upload log.</p> : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {error ? <div className="mt-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><XCircle className="h-4 w-4" />{error}</div> : null}
     </div>
   )
