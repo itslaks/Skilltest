@@ -119,6 +119,16 @@ export async function GET() {
   const feedback = feedbackRes.data || []
   const quizzes = quizzesRes.data || []
   const settings = Object.fromEntries((settingsRes.data || []).map((item: any) => [item.key, item.value]))
+  const notificationIds = notifications.map((item: any) => item.id).filter(Boolean)
+  const notificationDispatchRes = notificationIds.length
+    ? await dataClient
+        .from('training_notification_dispatch_log')
+        .select('*')
+        .in('notification_id', notificationIds)
+        .order('created_at', { ascending: false })
+    : { data: [] }
+  const notificationDispatchLogs = notificationDispatchRes.data || []
+  const notificationsById = new Map(notifications.map((item: any) => [item.id, item]))
 
   const membersByBatch = groupBy(members, 'batch_id')
   const sessionsByBatch = groupBy(sessions, 'batch_id')
@@ -200,6 +210,8 @@ export async function GET() {
     'Total Records': upload.total_records,
     'Successful Records': upload.successful_records,
     'Failed Records': upload.failed_records,
+    'After Cutoff': upload.uploaded_after_cutoff ? 'YES' : 'NO',
+    'Late Reason': upload.late_reason || '',
     'Uploaded At': upload.created_at ? new Date(upload.created_at).toLocaleString() : 'N/A',
   })))
   addSheet(wb, 'Topper Criteria', [
@@ -243,6 +255,18 @@ export async function GET() {
     'Sent At': item.sent_at ? new Date(item.sent_at).toLocaleString() : 'N/A',
     'Message': item.message,
   })))
+  addSheet(wb, 'Notification Dispatch', notificationDispatchLogs.map((item: any) => {
+    const notification = notificationsById.get(item.notification_id) as any
+    return {
+      'Notification': notification?.title || item.notification_id,
+      'Batch': notification?.batch?.title || 'N/A',
+      'Channel': item.channel,
+      'Recipient Email': item.recipient_email || 'N/A',
+      'Provider Status': item.provider_status,
+      'Provider Message': item.provider_message || '',
+      'Attempted At': item.created_at ? new Date(item.created_at).toLocaleString() : 'N/A',
+    }
+  }))
   addSheet(wb, 'Automation Runs', (automationRes.data || []).map((item: any) => ({
     'Run Type': item.run_type,
     'Batch ID': item.batch_id || 'All',

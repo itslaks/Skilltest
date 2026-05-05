@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   if (auth instanceof NextResponse) return auth
   const { userId, role } = auth
 
-  const { sessionId, records, fileName, chunkIndex, chunkTotal } = await request.json()
+  const { sessionId, records, fileName, chunkIndex, chunkTotal, lateReason } = await request.json()
   if (!sessionId || !Array.isArray(records) || records.length === 0) {
     return NextResponse.json({ error: 'Session and attendance rows are required.' }, { status: 400 })
   }
@@ -36,6 +36,27 @@ export async function POST(request: NextRequest) {
     if (!assignment) {
       return NextResponse.json({ error: 'Trainer access is limited to assigned batches.' }, { status: 403 })
     }
+  }
+
+  const settingsRes = await admin
+    .from('training_system_settings')
+    .select('value')
+    .eq('key', 'attendance_cutoff_time')
+    .maybeSingle()
+  const cutoffTime = String(settingsRes.data?.value || '10:00').replaceAll('"', '')
+  const sessionDate = new Date(session.session_date)
+  const [hoursRaw, minutesRaw] = cutoffTime.split(':')
+  const cutoff = new Date(sessionDate)
+  cutoff.setHours(Number(hoursRaw) || 10, Number(minutesRaw) || 0, 0, 0)
+  const uploadedAfterCutoff = new Date() > cutoff
+  const cleanLateReason = String(lateReason || '').trim()
+
+  if (uploadedAfterCutoff && cleanLateReason.length < 10) {
+    return NextResponse.json({
+      error: `Attendance upload is after the ${cutoffTime} cut-off. Add a reason with at least 10 characters to continue.`,
+      requiresLateReason: true,
+      cutoffTime,
+    }, { status: 400 })
   }
 
   const emails = records
@@ -157,18 +178,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const settingsRes = await admin
-    .from('training_system_settings')
-    .select('value')
-    .eq('key', 'attendance_cutoff_time')
-    .maybeSingle()
-  const cutoffTime = String(settingsRes.data?.value || '10:00').replaceAll('"', '')
-  const sessionDate = new Date(session.session_date)
-  const [hoursRaw, minutesRaw] = cutoffTime.split(':')
-  const cutoff = new Date(sessionDate)
-  cutoff.setHours(Number(hoursRaw) || 10, Number(minutesRaw) || 0, 0, 0)
-  const uploadedAfterCutoff = new Date() > cutoff
-
   await admin.from('training_attendance_uploads').insert({
     session_id: sessionId,
     batch_id: session.batch_id,
@@ -179,6 +188,7 @@ export async function POST(request: NextRequest) {
     failed_records: errors.length,
     error_log: errors.length ? errors : null,
     uploaded_after_cutoff: uploadedAfterCutoff,
+    late_reason: uploadedAfterCutoff ? cleanLateReason : null,
     chunk_index: Number.isFinite(Number(chunkIndex)) ? Number(chunkIndex) : null,
     chunk_total: Number.isFinite(Number(chunkTotal)) ? Number(chunkTotal) : null,
   })
@@ -187,11 +197,10 @@ export async function POST(request: NextRequest) {
     batch_id: session.batch_id,
     session_id: sessionId,
     title: `Attendance uploaded: ${session.title}`,
-    message: `${rows.length} attendance record(s) updated. ${errors.length} row(s) need review.${uploadedAfterCutoff ? ` Upload was after the ${cutoffTime} cut-off.` : ''}`,
+    message: `${rows.length} attendance record(s) updated. ${errors.length} row(s) need review.${uploadedAfterCutoff ? ` Upload was after the ${cutoffTime} cut-off. Reason: ${cleanLateReason}` : ''}`,
     audience: 'coordinators',
     channel: 'email',
-    delivery_status: 'sent',
-    sent_at: new Date().toISOString(),
+    delivery_status: 'queued',
     created_by: userId,
   }).select('id').single()
 
@@ -205,16 +214,28 @@ export async function POST(request: NextRequest) {
       recordCount: rows.length,
       errorCount: errors.length,
     })
-    await sendEmail({ to: uploaderProfile.email, subject: `✅ Attendance Upload Confirmed — ${(session.batch as any)?.title || session.title}`, html })
+    const emailResult = await sendEmail({ to: uploaderProfile.email, subject: `Attendance Upload Confirmed - ${(session.batch as any)?.title || session.title}`, html })
     if (notification?.id) {
+      await admin
+        .from('training_notifications')
+        .update({
+          delivery_status: emailResult.success ? 'sent' : 'failed',
+          sent_at: emailResult.success ? new Date().toISOString() : null,
+        })
+        .eq('id', notification.id)
       await admin.from('training_notification_dispatch_log').insert({
         notification_id: notification.id,
         recipient_email: uploaderProfile.email,
         channel: 'email',
-        provider_status: 'sent',
-        provider_message: 'Sent via Resend',
+        provider_status: emailResult.success ? 'sent' : 'failed',
+        provider_message: emailResult.error || 'Sent via Resend',
       })
     }
+  } else if (notification?.id) {
+    await admin
+      .from('training_notifications')
+      .update({ delivery_status: 'logged' })
+      .eq('id', notification.id)
   }
 
   return NextResponse.json({
@@ -223,6 +244,7 @@ export async function POST(request: NextRequest) {
     successfulRecords: rows.length,
     failedRecords: errors.length,
     errors,
+    uploadedAfterCutoff,
   })
 }
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Upload, FileSpreadsheet, CheckCircle2, XCircle } from 'lucide-react'
+import { Upload, FileSpreadsheet, CheckCircle2, XCircle, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 type SessionOption = {
@@ -22,21 +22,26 @@ type UploadResult = {
   successfulRecords: number
   failedRecords: number
   errors?: Array<{ row: number; error: string; email?: string; employeeId?: string }>
+  uploadedAfterCutoff?: boolean
 }
 
 const CHUNK_SIZE = 1000
+type UploadProgress = { current: number; total: number; processed: number; totalRows: number; label: string } | null
 
 export function AttendanceImporter({ sessions }: AttendanceImporterProps) {
   const [sessionId, setSessionId] = useState(sessions[0]?.id || '')
   const [preview, setPreview] = useState<Record<string, any>[] | null>(null)
   const [fileName, setFileName] = useState('')
+  const [lateReason, setLateReason] = useState('')
   const [result, setResult] = useState<UploadResult | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<UploadProgress>(null)
 
   function readFile(file: File) {
     setError('')
     setResult(null)
+    setProgress(null)
     setFileName(file.name)
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -69,16 +74,31 @@ export function AttendanceImporter({ sessions }: AttendanceImporterProps) {
       const aggregate: UploadResult = { totalRecords: preview.length, successfulRecords: 0, failedRecords: 0, errors: [] }
       const chunks = chunkRows(preview, CHUNK_SIZE)
       for (let index = 0; index < chunks.length; index++) {
+        setProgress({
+          current: index + 1,
+          total: chunks.length,
+          processed: Math.min(index * CHUNK_SIZE, preview.length),
+          totalRows: preview.length,
+          label: `Uploading chunk ${index + 1} of ${chunks.length}`,
+        })
         const response = await fetch('/api/training/attendance-import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, records: chunks[index], fileName, chunkIndex: index + 1, chunkTotal: chunks.length }),
+          body: JSON.stringify({ sessionId, records: chunks[index], fileName, lateReason, chunkIndex: index + 1, chunkTotal: chunks.length }),
         })
         const payload = await response.json()
         if (!response.ok) throw new Error(payload.error || 'Attendance upload failed.')
         aggregate.successfulRecords += payload.successfulRecords || 0
         aggregate.failedRecords += payload.failedRecords || 0
+        aggregate.uploadedAfterCutoff = aggregate.uploadedAfterCutoff || Boolean(payload.uploadedAfterCutoff)
         aggregate.errors?.push(...((payload.errors || []).map((item: any) => ({ ...item, row: item.row + (index * CHUNK_SIZE) }))))
+        setProgress({
+          current: index + 1,
+          total: chunks.length,
+          processed: Math.min((index + 1) * CHUNK_SIZE, preview.length),
+          totalRows: preview.length,
+          label: `Completed chunk ${index + 1} of ${chunks.length}`,
+        })
       }
       setResult(aggregate)
       setPreview(null)
@@ -133,37 +153,87 @@ export function AttendanceImporter({ sessions }: AttendanceImporterProps) {
 
       {preview ? (
         <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p><strong>{preview.length}</strong> row(s) ready from {fileName}.</p>
-            <Button onClick={upload} disabled={loading || !sessionId} className="rounded-full bg-black text-white hover:bg-zinc-800">
-              {loading ? 'Uploading...' : 'Upload attendance'}
-            </Button>
+          <div className="grid gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p><strong>{preview.length}</strong> row(s) ready from {fileName}.</p>
+              <Button onClick={upload} disabled={loading || !sessionId} className="rounded-full bg-black text-white hover:bg-zinc-800">
+                {loading ? 'Uploading...' : 'Upload attendance'}
+              </Button>
+            </div>
+            <label className="grid gap-2 text-sm">
+              <span className="font-medium">Late upload reason</span>
+              <textarea
+                value={lateReason}
+                onChange={(event) => setLateReason(event.target.value)}
+                rows={2}
+                className="rounded-xl border border-blue-100 bg-white px-3 py-2 text-blue-950 placeholder:text-blue-300"
+                placeholder="Required automatically if this upload is after the configured attendance cut-off."
+              />
+            </label>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {Object.keys(preview[0] || {}).slice(0, 6).map((column) => (
               <Badge key={column} variant="outline" className="bg-white">{column}</Badge>
             ))}
           </div>
+          <UploadProgressPanel progress={progress} />
         </div>
       ) : null}
 
       {result ? (
         <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-          <div className="flex items-center gap-2 font-semibold">
-            <CheckCircle2 className="h-4 w-4" />
-            Attendance upload complete
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 font-semibold">
+              <CheckCircle2 className="h-4 w-4" />
+              Attendance upload complete
+            </div>
+            {result.errors?.length ? (
+              <Button type="button" variant="outline" size="sm" className="h-8 rounded-full bg-white" onClick={() => downloadIssues(result.errors || [], fileName || 'attendance-upload')}>
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Download issues
+              </Button>
+            ) : null}
           </div>
-          <p className="mt-1">{result.successfulRecords}/{result.totalRecords} rows updated. {result.failedRecords} row(s) need review.</p>
+          <p className="mt-1">{result.successfulRecords}/{result.totalRecords} rows updated. {result.failedRecords} row(s) need review.{result.uploadedAfterCutoff ? ' Late upload reason captured in the audit log.' : ''}</p>
           {result.errors?.length ? (
-            <div className="mt-2 space-y-1 text-xs text-rose-700">
-              {result.errors.slice(0, 8).map((item) => (
-                <p key={item.row}>Row {item.row}: {item.error}{item.email ? ` - ${item.email}` : ''}{item.employeeId ? ` - ${item.employeeId}` : ''}</p>
-              ))}
-              {result.errors.length > 8 ? <p>{result.errors.length - 8} more row issue(s) are available in the upload log.</p> : null}
+            <div className="mt-3 overflow-hidden rounded-xl border border-rose-200 bg-white text-xs text-rose-800">
+              <div className="grid grid-cols-[4.5rem_1fr_1fr_1.4fr] gap-2 border-b border-rose-100 bg-rose-50 px-3 py-2 font-semibold">
+                <span>Row</span>
+                <span>Candidate</span>
+                <span>Employee ID</span>
+                <span>Issue</span>
+              </div>
+              <div className="max-h-60 overflow-auto">
+                {result.errors.slice(0, 25).map((item) => (
+                  <div key={`${item.row}-${item.error}`} className="grid grid-cols-[4.5rem_1fr_1fr_1.4fr] gap-2 border-b border-rose-50 px-3 py-2 last:border-0">
+                    <span>{item.row}</span>
+                    <span className="truncate" title={item.email || ''}>{item.email || 'Not provided'}</span>
+                    <span className="truncate" title={item.employeeId || ''}>{item.employeeId || 'Not provided'}</span>
+                    <span>{item.error}</span>
+                  </div>
+                ))}
+              </div>
+              {result.errors.length > 25 ? <p className="border-t border-rose-100 px-3 py-2">{result.errors.length - 25} more row issue(s) are available in the downloadable issue file and upload log.</p> : null}
             </div>
           ) : null}
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function UploadProgressPanel({ progress }: { progress: UploadProgress }) {
+  if (!progress) return null
+  const pct = progress.totalRows ? Math.round((progress.processed / progress.totalRows) * 100) : 0
+  return (
+    <div className="mt-4 rounded-xl border border-blue-100 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-blue-900">
+        <span>{progress.label}</span>
+        <span>{progress.processed}/{progress.totalRows} rows - {pct}%</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100">
+        <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   )
 }
@@ -184,4 +254,19 @@ function findDuplicateKeys(rows: Record<string, any>[]) {
     seen.add(key)
   }
   return duplicates
+}
+
+function downloadIssues(errors: NonNullable<UploadResult['errors']>, sourceName: string) {
+  const header = ['Row', 'Candidate Email', 'Employee ID', 'Issue']
+  const body = errors.map((item) => [item.row, item.email || '', item.employeeId || '', item.error])
+  const csv = [header, ...body]
+    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${sourceName.replace(/\.[^.]+$/, '')}-attendance-issues.csv`
+  link.click()
+  URL.revokeObjectURL(url)
 }

@@ -25,6 +25,7 @@ import {
   BellRing,
   CalendarDays,
   ClipboardCheck,
+  FileText,
   FileSpreadsheet,
   Gauge,
   MessageSquareQuote,
@@ -126,6 +127,8 @@ export default async function ManagerOperationsPage() {
     automationRuns,
     attendanceVersions,
     assessmentUploads,
+    batchChangeAudit,
+    notificationDispatchLogs,
     governanceSettings,
   } = await getTrainingOpsManagerData()
 
@@ -249,7 +252,7 @@ export default async function ManagerOperationsPage() {
       meta: `${String(setup.assessment_type).replace('_', ' ')} - pass ${setup.passing_score}/${setup.max_score}`,
       status: setup.status,
     })),
-  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 10)
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
   const feedbackAnalytics = {
     total: feedback.length,
@@ -281,6 +284,12 @@ export default async function ManagerOperationsPage() {
     lastRun: latestAutomationRun ? new Date(latestAutomationRun.created_at).toLocaleString() : 'No run yet',
     lastRunType: latestAutomationRun ? latestAutomationRun.run_type.replaceAll('_', ' ') : 'Awaiting first governance sweep',
     notificationsCreated: automationRuns.reduce((sum: number, item: any) => sum + Number(item.notifications_created || 0), 0),
+  }
+  const notificationById = new Map(notifications.map((item: any) => [item.id, item]))
+  const dispatchHealth = {
+    sent: notificationDispatchLogs.filter((item: any) => item.provider_status === 'sent').length,
+    failed: notificationDispatchLogs.filter((item: any) => item.provider_status === 'failed').length,
+    logged: notificationDispatchLogs.filter((item: any) => item.provider_status === 'logged').length,
   }
 
   return (
@@ -420,15 +429,13 @@ export default async function ManagerOperationsPage() {
                 <textarea name="description" rows={3} className="w-full min-w-0 rounded-xl border border-zinc-200 px-3 py-3" placeholder="Goal, scope, batch objective, and delivery expectations." />
               </label>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium">Status</span>
-                  <select name="status" defaultValue="planned" className="h-11 w-full min-w-0 rounded-xl border border-zinc-200 px-3">
-                    <option value="planned">Planned</option>
-                    <option value="running">Running</option>
-                    <option value="completed">Completed</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </label>
+                <div className="grid gap-2 text-sm">
+                  <span className="font-medium">Initial status</span>
+                  <div className="flex h-11 w-full min-w-0 items-center rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-zinc-700">
+                    Planned
+                  </div>
+                  <p className="text-xs text-zinc-500">Move to running after schedule, trainers, and learners are ready.</p>
+                </div>
                 <label className="grid gap-2 text-sm">
                   <span className="font-medium">Start date</span>
                   <input name="start_date" type="date" className="h-11 w-full min-w-0 rounded-xl border border-zinc-200 px-3" />
@@ -981,11 +988,45 @@ export default async function ManagerOperationsPage() {
             <CardDescription>Recent learner sentiment and communication activity tied to training execution.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <FeedbackAnalyticsPanel analytics={feedbackAnalytics} />
+            <FeedbackAnalyticsPanel
+              analytics={feedbackAnalytics}
+              batches={batches.map((batch: any) => ({ id: batch.id, title: batch.title }))}
+            />
 
             <div className="grid gap-3 sm:grid-cols-2">
               <MiniMetric label="Notifications sent" value={`${summary.notificationsSent}`} />
               <MiniMetric label="Negative feedback" value={`${summary.negativeFeedbackCount}`} />
+            </div>
+
+            <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">Dispatch Evidence</p>
+                  <p className="mt-1 text-sm text-zinc-500">Recipient-level email provider outcomes from recent training notifications.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="border-emerald-200 bg-white text-emerald-700">Sent {dispatchHealth.sent}</Badge>
+                  <Badge variant="outline" className="border-rose-200 bg-white text-rose-700">Failed {dispatchHealth.failed}</Badge>
+                  <Badge variant="outline" className="border-zinc-200 bg-white text-zinc-700">Logged {dispatchHealth.logged}</Badge>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                {notificationDispatchLogs.length === 0 ? (
+                  <EmptyState text="No provider dispatch evidence has been logged yet." compact />
+                ) : notificationDispatchLogs.slice(0, 4).map((item: any) => {
+                  const sourceNotification = notificationById.get(item.notification_id) as any
+                  return (
+                    <div key={item.id} className="rounded-2xl border border-zinc-200 bg-white p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="min-w-0 truncate text-sm font-medium">{sourceNotification?.title || 'Training notification'}</p>
+                        <Badge variant="outline" className="capitalize">{item.provider_status}</Badge>
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-500">{item.recipient_email || 'No recipient email'} - {item.provider_message || 'No provider message'}</p>
+                      <p className="mt-1 text-xs text-zinc-400">{new Date(item.created_at).toLocaleString()}</p>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1164,7 +1205,17 @@ export default async function ManagerOperationsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-3">
+      <div className="grid gap-6 xl:grid-cols-4">
+        <AuditPanel
+          title="Batch Change Audit"
+          empty="No batch lifecycle or configuration changes have been audited yet."
+          items={batchChangeAudit.slice(0, 5).map((item: any) => ({
+            id: item.id,
+            title: item.batch?.title || 'Training batch',
+            body: describeBatchAudit(item),
+            meta: new Date(item.changed_at).toLocaleString(),
+          }))}
+        />
         <AuditPanel
           title="Attendance Versions"
           empty="No attendance changes have been versioned yet."
@@ -1260,36 +1311,78 @@ function ActionTile({ title, value, detail, tone }: { title: string; value: stri
 }
 
 function ScheduleTimeline({ items }: { items: Array<{ id: string; type: string; title: string; batchTitle: string; date: string; meta: string; status: string }> }) {
+  const now = Date.now()
+  const upcoming = items.filter((item) => new Date(item.date).getTime() >= now)
+  const completed = items.length - upcoming.length
+  const assessmentCount = items.filter((item) => item.type === 'Assessment').length
+  const nextItems = upcoming.slice(0, 8)
+  const pastItems = items.filter((item) => new Date(item.date).getTime() < now).slice(-4).reverse()
+
   return (
     <Card className="border-zinc-200 shadow-sm spotlight-card">
       <CardHeader>
-        <CardTitle>Batch Schedule Timeline</CardTitle>
-        <CardDescription>One operating rail for sessions, assessment dates, trainer ownership, and lifecycle status.</CardDescription>
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <CardTitle>Batch Schedule Planner</CardTitle>
+            <CardDescription>One operating rail for sessions, assessment dates, trainer ownership, and lifecycle status.</CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="rounded-full bg-white">{upcoming.length} upcoming</Badge>
+            <Badge variant="outline" className="rounded-full bg-white">{assessmentCount} assessment date(s)</Badge>
+            <Badge variant="outline" className="rounded-full bg-white">{completed} completed/past</Badge>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
           <EmptyState text="No scheduled sessions or assessments yet." />
         ) : (
-          <div className="relative grid gap-4 before:absolute before:left-[1.15rem] before:top-3 before:h-[calc(100%-1.5rem)] before:w-px before:bg-zinc-200">
-            {items.map((item) => (
-              <div key={item.id} className="relative grid gap-3 pl-10 md:grid-cols-[11rem_1fr_auto] md:items-center">
-                <div className="absolute left-0 top-1 flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-white text-xs font-bold text-zinc-700">
-                  {item.type === 'Assessment' ? 'A' : 'S'}
-                </div>
-                <div className="text-sm">
-                  <p className="font-semibold text-zinc-900">{new Date(item.date).toLocaleDateString()}</p>
-                  <p className="text-xs text-zinc-500">{new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                </div>
-                <div className="min-w-0 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{item.type}</Badge>
-                    <Badge variant="outline" className="capitalize">{item.status}</Badge>
+          <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+            <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">Upcoming execution lane</p>
+              <div className="mt-4 grid gap-3">
+                {nextItems.length === 0 ? (
+                  <EmptyState text="No upcoming schedule items." compact />
+                ) : nextItems.map((item) => (
+                  <div key={item.id} className="grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 md:grid-cols-[9rem_1fr_auto] md:items-center">
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900">{new Date(item.date).toLocaleDateString()}</p>
+                      <p className="text-xs text-zinc-500">{new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className={item.type === 'Assessment' ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-800'}>{item.type}</Badge>
+                        <Badge variant="outline" className="capitalize">{item.status}</Badge>
+                      </div>
+                      <p className="mt-2 font-semibold text-zinc-950">{item.title}</p>
+                      <p className="mt-1 text-sm text-zinc-500">{item.batchTitle} - {item.meta}</p>
+                    </div>
+                    <div className="rounded-full bg-black px-3 py-1 text-xs font-semibold text-white">
+                      {Math.max(0, Math.ceil((new Date(item.date).getTime() - now) / 86400000))}d
+                    </div>
                   </div>
-                  <p className="mt-2 font-semibold text-zinc-950">{item.title}</p>
-                  <p className="mt-1 text-sm text-zinc-500">{item.batchTitle} - {item.meta}</p>
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            <div className="rounded-[1.5rem] border border-zinc-900 bg-black p-4 text-white">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">Program roadmap</p>
+              <div className="mt-4 space-y-3">
+                {(pastItems.length ? pastItems : items.slice(0, 4)).map((item) => (
+                  <div key={`compact-${item.id}`} className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Badge variant="outline" className="border-white/20 bg-white/10 text-white">{item.type}</Badge>
+                      <span className="text-xs text-zinc-400">{new Date(item.date).toLocaleDateString()}</span>
+                    </div>
+                    <p className="mt-3 font-semibold">{item.title}</p>
+                    <p className="mt-1 text-sm text-zinc-400">{item.batchTitle}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-xs leading-relaxed text-zinc-400">
+                This planner gives coordinators one place to narrate the complete batch calendar: delivery sessions, assessment dates, and ownership signals.
+              </p>
+            </div>
           </div>
         )}
       </CardContent>
@@ -1297,12 +1390,19 @@ function ScheduleTimeline({ items }: { items: Array<{ id: string; type: string; 
   )
 }
 
-function FeedbackAnalyticsPanel({ analytics }: { analytics: { total: number; positive: number; neutral: number; negative: number; avgRating: string; avgContent: string; avgTrainer: string } }) {
+function FeedbackAnalyticsPanel({
+  analytics,
+  batches,
+}: {
+  analytics: { total: number; positive: number; neutral: number; negative: number; avgRating: string; avgContent: string; avgTrainer: string }
+  batches: Array<{ id: string; title: string }>
+}) {
   const rows = [
     { label: 'Positive', value: analytics.positive, tone: 'bg-emerald-500' },
     { label: 'Neutral', value: analytics.neutral, tone: 'bg-blue-500' },
     { label: 'Negative', value: analytics.negative, tone: 'bg-rose-500' },
   ]
+  const topBatchLinks = batches.slice(0, 4)
 
   return (
     <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
@@ -1326,6 +1426,30 @@ function FeedbackAnalyticsPanel({ analytics }: { analytics: { total: number; pos
             </div>
           )
         })}
+      </div>
+      <div className="mt-5 rounded-2xl border border-zinc-200 bg-white p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-zinc-950">Standalone feedback reports</p>
+            <p className="mt-1 text-xs text-zinc-500">Download feedback-only analysis with windows, ratings, sentiment, comments, and action items.</p>
+          </div>
+          <Button asChild variant="outline" size="sm" className="rounded-full">
+            <a href="/api/export/pdf?type=feedback">
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+              All feedback PDF
+            </a>
+          </Button>
+        </div>
+        {topBatchLinks.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {topBatchLinks.map((batch) => (
+              <a key={batch.id} href={`/api/export/batch-feedback?batchId=${batch.id}`} className="inline-flex max-w-full items-center gap-2 rounded-full border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50">
+                <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{batch.title}</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -1455,6 +1579,23 @@ function buildTrainerScorecards({
     const risk = attendanceRate < 70 ? 'Attendance intervention' : assessmentAvg < 70 ? 'Assessment coaching' : Number(avgFeedback) < 3.5 && feedbackRows.length ? 'Feedback follow-up' : 'Healthy execution'
     return { id: trainer.id, name: trainer.name, batches: batchIds.length, attendance: attendanceRate, assessment: assessmentAvg, feedback: avgFeedback, score, risk }
   }).sort((a, b) => b.score - a.score)
+}
+
+function describeBatchAudit(item: any) {
+  const actor = item.changer?.full_name || item.changer?.email || 'system'
+  const changeType = String(item.change_type || 'change').replaceAll('_', ' ')
+  const previousStatus = item.previous_value?.status || item.previous_value?.enrollment_status
+  const nextStatus = item.new_value?.status || item.new_value?.enrollment_status
+
+  if (previousStatus && nextStatus && previousStatus !== nextStatus) {
+    return `${changeType}: ${previousStatus} -> ${nextStatus} by ${actor}`
+  }
+
+  if (nextStatus) {
+    return `${changeType}: ${nextStatus} by ${actor}`
+  }
+
+  return `${changeType} by ${actor}`
 }
 
 function AuditPanel({ title, empty, items }: { title: string; empty: string; items: Array<{ id: string; title: string; body: string; meta: string; href?: string | null }> }) {

@@ -3,11 +3,12 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileSpreadsheet, Upload, CheckCircle2, XCircle } from 'lucide-react'
+import { FileSpreadsheet, Upload, CheckCircle2, XCircle, Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
 type BatchOption = { id: string; title: string }
 const CHUNK_SIZE = 1000
+type UploadProgress = { current: number; total: number; processed: number; totalRows: number; label: string } | null
 
 export function BatchCandidateImporter({ batches }: { batches: BatchOption[] }) {
   const [batchId, setBatchId] = useState(batches[0]?.id || '')
@@ -17,11 +18,13 @@ export function BatchCandidateImporter({ batches }: { batches: BatchOption[] }) 
   const [uploadErrors, setUploadErrors] = useState<Array<{ row?: number; error: string; email?: string; employeeId?: string }>>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState<UploadProgress>(null)
 
   function readFile(file: File) {
     setError('')
     setMessage('')
     setUploadErrors([])
+    setProgress(null)
     setFileName(file.name)
     const reader = new FileReader()
     reader.onload = (event) => {
@@ -57,6 +60,13 @@ export function BatchCandidateImporter({ batches }: { batches: BatchOption[] }) 
       const errors: Array<{ row?: number; error: string; email?: string; employeeId?: string }> = []
       const chunks = chunkRows(rows, CHUNK_SIZE)
       for (let index = 0; index < chunks.length; index++) {
+        setProgress({
+          current: index + 1,
+          total: chunks.length,
+          processed: Math.min(index * CHUNK_SIZE, rows.length),
+          totalRows: rows.length,
+          label: `Assigning candidate chunk ${index + 1} of ${chunks.length}`,
+        })
         const response = await fetch('/api/training/batch-candidate-import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -68,6 +78,13 @@ export function BatchCandidateImporter({ batches }: { batches: BatchOption[] }) 
         successful += payload.successfulRecords || 0
         failed += payload.failedRecords || 0
         errors.push(...((payload.errors || []).map((item: any) => ({ ...item, row: item.row ? item.row + (index * CHUNK_SIZE) : item.row }))))
+        setProgress({
+          current: index + 1,
+          total: chunks.length,
+          processed: Math.min((index + 1) * CHUNK_SIZE, rows.length),
+          totalRows: rows.length,
+          label: `Completed candidate chunk ${index + 1} of ${chunks.length}`,
+        })
       }
       setMessage(`${successful}/${total} candidate rows assigned. ${failed} row(s) need review.`)
       setUploadErrors(errors)
@@ -123,25 +140,61 @@ export function BatchCandidateImporter({ batches }: { batches: BatchOption[] }) 
               <Badge key={column} variant="outline" className="bg-white">{column}</Badge>
             ))}
           </div>
+          <UploadProgressPanel progress={progress} />
         </div>
       ) : null}
 
       {message ? (
         <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" />{message}</div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="h-4 w-4" />{message}</div>
+            {uploadErrors.length ? (
+              <Button type="button" variant="outline" size="sm" className="h-8 rounded-full bg-white" onClick={() => downloadCandidateIssues(uploadErrors, fileName || 'candidate-upload')}>
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Download issues
+              </Button>
+            ) : null}
+          </div>
           {uploadErrors.length ? (
-            <div className="mt-2 space-y-1 text-xs text-rose-700">
-              {uploadErrors.slice(0, 8).map((item, index) => (
-                <p key={`${item.row || index}-${item.error}`}>
-                  {item.row ? `Row ${item.row}` : 'Upload'}: {item.error}{item.email ? ` - ${item.email}` : ''}{item.employeeId ? ` - ${item.employeeId}` : ''}
-                </p>
-              ))}
-              {uploadErrors.length > 8 ? <p>{uploadErrors.length - 8} more row issue(s) are available in the upload log.</p> : null}
+            <div className="mt-3 overflow-hidden rounded-xl border border-rose-200 bg-white text-xs text-rose-800">
+              <div className="grid grid-cols-[4.5rem_1fr_1fr_1.4fr] gap-2 border-b border-rose-100 bg-rose-50 px-3 py-2 font-semibold">
+                <span>Row</span>
+                <span>Candidate</span>
+                <span>Employee ID</span>
+                <span>Issue</span>
+              </div>
+              <div className="max-h-60 overflow-auto">
+                {uploadErrors.slice(0, 25).map((item, index) => (
+                  <div key={`${item.row || index}-${item.error}`} className="grid grid-cols-[4.5rem_1fr_1fr_1.4fr] gap-2 border-b border-rose-50 px-3 py-2 last:border-0">
+                    <span>{item.row || 'Upload'}</span>
+                    <span className="truncate" title={item.email || ''}>{item.email || 'Not provided'}</span>
+                    <span className="truncate" title={item.employeeId || ''}>{item.employeeId || 'Not provided'}</span>
+                    <span>{item.error}</span>
+                  </div>
+                ))}
+              </div>
+              {uploadErrors.length > 25 ? <p className="border-t border-rose-100 px-3 py-2">{uploadErrors.length - 25} more row issue(s) are available in the downloadable issue file and upload log.</p> : null}
             </div>
           ) : null}
         </div>
       ) : null}
       {error ? <div className="mt-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"><XCircle className="h-4 w-4" />{error}</div> : null}
+    </div>
+  )
+}
+
+function UploadProgressPanel({ progress }: { progress: UploadProgress }) {
+  if (!progress) return null
+  const pct = progress.totalRows ? Math.round((progress.processed / progress.totalRows) * 100) : 0
+  return (
+    <div className="mt-4 rounded-xl border border-blue-100 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-blue-900">
+        <span>{progress.label}</span>
+        <span>{progress.processed}/{progress.totalRows} rows - {pct}%</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100">
+        <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   )
 }
@@ -162,4 +215,19 @@ function findDuplicateKeys(rows: Record<string, any>[]) {
     seen.add(key)
   }
   return duplicates
+}
+
+function downloadCandidateIssues(errors: Array<{ row?: number; error: string; email?: string; employeeId?: string }>, sourceName: string) {
+  const header = ['Row', 'Candidate Email', 'Employee ID', 'Issue']
+  const body = errors.map((item) => [item.row || '', item.email || '', item.employeeId || '', item.error])
+  const csv = [header, ...body]
+    .map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${sourceName.replace(/\.[^.]+$/, '')}-candidate-issues.csv`
+  link.click()
+  URL.revokeObjectURL(url)
 }

@@ -22,6 +22,7 @@ import {
 import { DownloadReportButton } from '@/components/manager/download-report-button'
 import { QuickDeleteButton } from '@/components/manager/quick-delete-button'
 import { TmsBatchDownloads } from '@/components/manager/tms-batch-downloads'
+import { OpsAutoRefresh } from '@/components/manager/ops-auto-refresh'
 import { averageScore, computeTopperScore } from '@/lib/topper'
 import { getAccessibleTrainingBatchIds } from '@/lib/training-access'
 
@@ -52,7 +53,7 @@ export default async function ManagerReportsPage() {
     : { data: [] }
 
   const batchIds = (batches || []).map((batch: any) => batch.id)
-  const [membersRes, attendanceRes, projectRes, attemptsRes, feedbackRes, batchTrainersRes, importResultsRes] = await Promise.all([
+  const [membersRes, attendanceRes, projectRes, attemptsRes, feedbackRes, batchTrainersRes, importResultsRes, assessmentSetupsRes] = await Promise.all([
     batchIds.length
       ? admin
           .from('batch_members')
@@ -92,7 +93,13 @@ export default async function ManagerReportsPage() {
     batchIds.length
       ? admin
           .from('assessment_results')
-          .select('batch_id, percentage, candidate_score')
+          .select('batch_id, assessment_setup_id, percentage, candidate_score')
+          .in('batch_id', batchIds)
+      : Promise.resolve({ data: [] }),
+    batchIds.length
+      ? admin
+          .from('training_assessment_setups')
+          .select('id, batch_id, title, assessment_type, passing_score')
           .in('batch_id', batchIds)
       : Promise.resolve({ data: [] }),
   ])
@@ -104,6 +111,7 @@ export default async function ManagerReportsPage() {
   const trainingFeedback = feedbackRes.data || []
   const batchTrainersList = batchTrainersRes.data || []
   const importedAssessments = importResultsRes.data || []
+  const assessmentSetups = assessmentSetupsRes.data || []
   const statusCounts = {
     discontinued: members.filter((member: any) => ['discontinued', 'dropped'].includes(member.enrollment_status)).length,
     notCleared: members.filter((member: any) => member.enrollment_status === 'not_cleared').length,
@@ -113,6 +121,7 @@ export default async function ManagerReportsPage() {
 
   const topperRows = buildTopperRows(members, trainingAttempts, projectEvaluations, trainingAttendance, importedAssessments, governance).slice(0, 10)
   const trainerMetrics = buildTrainerMetrics(batches || [], batchTrainersList, trainingAttendance, trainingAttempts, trainingFeedback, projectEvaluations, importedAssessments)
+  const assessmentClearanceRows = buildAssessmentClearanceRows(batches || [], importedAssessments, assessmentSetups)
 
   // Get per-quiz attempt data
   const quizIds = quizzes.map((q: any) => q.id)
@@ -155,6 +164,7 @@ export default async function ManagerReportsPage() {
 
   return (
     <div className="space-y-8">
+      <OpsAutoRefresh intervalMs={45000} compact />
       <section className="rounded-[2rem] border border-zinc-900 bg-black p-6 text-white shadow-[0_32px_90px_rgba(0,0,0,0.42)] md:p-8 dashboard-grid-bg maverick-command-band">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -173,6 +183,12 @@ export default async function ManagerReportsPage() {
             <a href="/api/export/pdf?type=consolidated">
               <FileText className="mr-2 h-4 w-4" />
               Consolidated PDF
+            </a>
+          </Button>
+          <Button variant="outline" asChild>
+            <a href="/api/export/pdf?type=assessment">
+              <FileText className="mr-2 h-4 w-4" />
+              Assessment PDF
             </a>
           </Button>
           <Button variant="outline" asChild>
@@ -215,7 +231,7 @@ export default async function ManagerReportsPage() {
 
           {/* Consolidated filter downloads */}
           <div className="border-t border-white/10 pt-4">
-            <p className="text-xs uppercase tracking-[0.25em] text-zinc-400 mb-3">Consolidated Report — Filter by Status</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-zinc-400 mb-3">Consolidated Report - Filter by Status</p>
             <div className="flex flex-wrap gap-2">
               {(['all', 'discontinued', 'not_cleared', 'offered', 'onboarded'] as const).map((filter) => (
                 <a key={filter} href={`/api/export/consolidated?filter=${filter}`}
@@ -232,6 +248,66 @@ export default async function ManagerReportsPage() {
       {/* Per-batch download section */}
       {(batches || []).length > 0 && (
         <TmsBatchDownloads batches={(batches || []).map((b: any) => ({ id: b.id, title: b.title, status: b.status }))} />
+      )}
+
+      {(batches || []).length > 0 && (
+        <Card className="overflow-hidden border-zinc-900 bg-black text-white shadow-[0_28px_80px_rgba(0,0,0,0.32)]">
+          <CardHeader className="border-b border-white/10">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <CardTitle>Feedback Intelligence Center</CardTitle>
+                <CardDescription className="text-zinc-400">
+                  Standalone feedback downloads and batch sentiment signals for BRD section 5.5.
+                </CardDescription>
+              </div>
+              <Button asChild variant="outline" className="w-fit rounded-full border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+                <a href="/api/export/pdf?type=feedback">
+                  <FileText className="mr-2 h-4 w-4" />
+                  All Feedback PDF
+                </a>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
+            {(batches || []).slice(0, 6).map((batch: any) => {
+              const batchFeedback = trainingFeedback.filter((item: any) => item.batch_id === batch.id)
+              const avgTrainer = batchFeedback.length
+                ? (batchFeedback.reduce((sum: number, item: any) => sum + Number(item.trainer_effectiveness_rating || 0), 0) / batchFeedback.length).toFixed(1)
+                : '0.0'
+              const positive = batchFeedback.filter((item: any) => item.sentiment === 'positive').length
+              const negative = batchFeedback.filter((item: any) => item.sentiment === 'negative').length
+              return (
+                <div key={batch.id} className="rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold" title={batch.title}>{batch.title}</p>
+                      <p className="mt-1 text-xs text-zinc-400">{batchFeedback.length} response(s)</p>
+                    </div>
+                    <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-black">{avgTrainer}</div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+                    <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Positive</p>
+                      <p className="mt-1 text-sm font-semibold text-emerald-200">{positive}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Negative</p>
+                      <p className="mt-1 text-sm font-semibold text-rose-200">{negative}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button asChild size="sm" variant="outline" className="rounded-full border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+                      <a href={`/api/export/batch-feedback?batchId=${batch.id}`}>Excel</a>
+                    </Button>
+                    <Button asChild size="sm" variant="outline" className="rounded-full border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white">
+                      <a href={`/api/export/pdf?type=feedback&batchId=${batch.id}`}>PDF</a>
+                    </Button>
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
@@ -279,6 +355,46 @@ export default async function ManagerReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-emerald-100 bg-emerald-50/40 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-emerald-950">
+            <Target className="h-5 w-5 text-emerald-700" />
+            Assessment Clearance Drilldown
+          </CardTitle>
+          <CardDescription className="text-emerald-800">
+            Batch-level pass rate across imported assessment scores, using each configured assessment passing score.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {assessmentClearanceRows.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-emerald-200 bg-white/70 p-6 text-center text-sm text-emerald-800">No imported assessment results available yet.</p>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              {assessmentClearanceRows.map((row) => (
+                <div key={row.batchId} className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-emerald-950" title={row.batchTitle}>{row.batchTitle}</p>
+                      <p className="mt-1 text-xs text-emerald-700">{row.assessmentCount} setup(s), {row.resultCount} score row(s)</p>
+                    </div>
+                    <div className="rounded-full bg-emerald-700 px-3 py-1 text-xs font-bold text-white">{row.clearanceRate}%</div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                    <MetricChip label="Avg" value={`${row.averageScore}%`} />
+                    <MetricChip label="Cleared" value={`${row.cleared}`} />
+                    <MetricChip label="Not cleared" value={`${row.notCleared}`} />
+                  </div>
+                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-emerald-100">
+                    <div className="h-full rounded-full bg-emerald-600" style={{ width: `${row.clearanceRate}%` }} />
+                  </div>
+                  <p className="mt-3 text-xs text-zinc-500">{row.signal}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Trainer Performance Metrics */}
       <Card className="border-indigo-100 bg-indigo-50/30 shadow-sm">
@@ -432,13 +548,13 @@ export default async function ManagerReportsPage() {
                       </div>
                       <div className="p-2 bg-muted/60 rounded-lg">
                         <p className={`text-lg font-bold ${hasAttempts ? (data.avgScore >= (quiz.passing_score || 70) ? 'text-green-600' : 'text-red-500') : ''}`}>
-                          {hasAttempts ? `${data.avgScore}%` : '—'}
+                          {hasAttempts ? `${data.avgScore}%` : '-'}
                         </p>
                         <p className="text-[10px] text-muted-foreground">Avg Score</p>
                       </div>
                       <div className="p-2 bg-muted/60 rounded-lg">
                         <p className={`text-lg font-bold ${hasAttempts ? (data.passRate >= 70 ? 'text-green-600' : data.passRate >= 40 ? 'text-amber-600' : 'text-red-500') : ''}`}>
-                          {hasAttempts ? `${data.passRate}%` : '—'}
+                          {hasAttempts ? `${data.passRate}%` : '-'}
                         </p>
                         <p className="text-[10px] text-muted-foreground">Pass Rate</p>
                       </div>
@@ -459,7 +575,7 @@ export default async function ManagerReportsPage() {
                     {/* Status + Download */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                       <Badge variant={quiz.is_active ? 'default' : 'secondary'} className="text-xs">
-                        {quiz.is_active ? '● Active' : '○ Inactive'}
+                        {quiz.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                       <div className="flex flex-wrap items-center gap-2">
                         <DownloadReportButton quizId={quiz.id} quizTitle={quiz.title} />
@@ -574,6 +690,51 @@ function FilterMetric({ title, value, tone }: { title: string; value: number; to
       <p className="mt-3 text-3xl font-bold">{value}</p>
     </div>
   )
+}
+
+function MetricChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-2">
+      <p className="text-[10px] uppercase tracking-wider text-emerald-700">{label}</p>
+      <p className="mt-1 text-lg font-bold text-emerald-950">{value}</p>
+    </div>
+  )
+}
+
+function buildAssessmentClearanceRows(batches: any[], importedAssessments: any[], assessmentSetups: any[]) {
+  const setupById = new Map(assessmentSetups.map((setup: any) => [setup.id, setup]))
+  return batches.map((batch: any) => {
+    const batchResults = importedAssessments.filter((result: any) => result.batch_id === batch.id)
+    const batchSetups = assessmentSetups.filter((setup: any) => setup.batch_id === batch.id)
+    const cleared = batchResults.filter((result: any) => {
+      const setup = setupById.get(result.assessment_setup_id)
+      const threshold = Number(setup?.passing_score ?? 70)
+      return Number(result.percentage ?? result.candidate_score ?? 0) >= threshold
+    }).length
+    const resultCount = batchResults.length
+    const notCleared = Math.max(0, resultCount - cleared)
+    const clearanceRate = resultCount ? Math.round((cleared / resultCount) * 100) : 0
+    const averageAssessmentScore = averageScore(batchResults.map((result: any) => Number(result.percentage ?? result.candidate_score ?? 0)))
+    const signal = resultCount === 0
+      ? 'Waiting for score upload.'
+      : clearanceRate >= 80
+        ? 'Healthy clearance trend.'
+        : clearanceRate >= 60
+          ? 'Moderate risk. Review weak assessment areas.'
+          : 'Intervention needed. Clearance is below expected threshold.'
+
+    return {
+      batchId: batch.id,
+      batchTitle: batch.title,
+      assessmentCount: batchSetups.length,
+      resultCount,
+      averageScore: averageAssessmentScore,
+      cleared,
+      notCleared,
+      clearanceRate,
+      signal,
+    }
+  }).filter((row) => row.assessmentCount > 0 || row.resultCount > 0)
 }
 
 function buildTopperRows(

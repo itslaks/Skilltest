@@ -9,7 +9,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { signUp } from '@/lib/actions/auth'
 import {
   Mail, Lock, User, Building, Sparkles, ArrowRight, CheckCircle2,
-  ShieldCheck, Zap, GraduationCap, BookOpen, ChevronRight, Clock, Star
+  ShieldCheck, Zap, GraduationCap, BookOpen, Clock, Star
 } from 'lucide-react'
 
 type SignUpRole = 'employee' | 'trainer'

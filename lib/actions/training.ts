@@ -145,6 +145,23 @@ async function resolveAutomationActor(admin: ReturnType<typeof createAdminClient
   return data?.id || null
 }
 
+async function finalizeEmailNotification(
+  admin: ReturnType<typeof createAdminClient>,
+  notificationId: string | undefined | null,
+  sendAttempts: number,
+  sendFailures: number
+) {
+  if (!notificationId) return
+  const deliveryStatus = sendAttempts === 0 ? 'logged' : sendFailures > 0 ? 'failed' : 'sent'
+  await admin
+    .from('training_notifications')
+    .update({
+      delivery_status: deliveryStatus,
+      sent_at: deliveryStatus === 'sent' ? new Date().toISOString() : null,
+    })
+    .eq('id', notificationId)
+}
+
 export async function getTrainingOpsManagerData() {
   const { userId, role } = await requireTrainingStaff()
   const admin = createAdminClient()
@@ -199,7 +216,7 @@ export async function getTrainingOpsManagerData() {
 
   const batchIds = batches.map((batch: any) => batch.id)
 
-  const [membersRes, sessionsRes, notificationsRes, feedbackRes, quizzesRes, batchTrainersRes, assessmentSetupsRes, projectEvaluationsRes, automationRunsRes, attendanceVersionsRes, assessmentUploadsRes] = await Promise.all([
+  const [membersRes, sessionsRes, notificationsRes, feedbackRes, quizzesRes, batchTrainersRes, assessmentSetupsRes, projectEvaluationsRes, automationRunsRes, attendanceVersionsRes, assessmentUploadsRes, batchChangeAuditRes] = await Promise.all([
     batchIds.length
       ? admin
           .from('batch_members')
@@ -297,6 +314,14 @@ export async function getTrainingOpsManagerData() {
           .order('created_at', { ascending: false })
           .limit(25)
       : Promise.resolve({ data: [] }),
+    batchIds.length
+      ? admin
+          .from('training_batch_change_audit')
+          .select('*, batch:batch_id(id, title), changer:changed_by(id, full_name, email)')
+          .in('batch_id', batchIds)
+          .order('changed_at', { ascending: false })
+          .limit(25)
+      : Promise.resolve({ data: [] }),
   ])
 
   const members = membersRes.data || []
@@ -310,6 +335,17 @@ export async function getTrainingOpsManagerData() {
   const automationRuns = automationRunsRes.data || []
   const attendanceVersions = attendanceVersionsRes.data || []
   const assessmentUploads = assessmentUploadsRes.data || []
+  const batchChangeAudit = batchChangeAuditRes.data || []
+  const notificationIds = notifications.map((notification: any) => notification.id).filter(Boolean)
+  const notificationDispatchLogsRes = notificationIds.length
+    ? await admin
+        .from('training_notification_dispatch_log')
+        .select('*')
+        .in('notification_id', notificationIds)
+        .order('created_at', { ascending: false })
+        .limit(30)
+    : { data: [] }
+  const notificationDispatchLogs = notificationDispatchLogsRes.data || []
   const sessionIds = sessions.map((session: any) => session.id)
   const attendanceRes = sessionIds.length
     ? await admin
@@ -403,6 +439,8 @@ export async function getTrainingOpsManagerData() {
     automationRuns,
     attendanceVersions,
     assessmentUploads,
+    batchChangeAudit,
+    notificationDispatchLogs,
     governanceSettings,
   }
 }
@@ -459,7 +497,7 @@ export async function getEmployeeTrainingData() {
 
   const batchIds = (memberships || []).map((membership: any) => membership.batch_id)
 
-  const [sessionsRes, attendanceRes, notificationsRes, feedbackRes, quizzesRes] = await Promise.all([
+  const [sessionsRes, attendanceRes, notificationsRes, feedbackRes, quizzesRes, feedbackWindowsRes] = await Promise.all([
     batchIds.length
       ? admin
           .from('training_sessions')
@@ -510,6 +548,16 @@ export async function getEmployeeTrainingData() {
           .in('batch_id', batchIds)
           .eq('is_active', true)
       : Promise.resolve({ data: [] }),
+    batchIds.length
+      ? admin
+          .from('training_feedback_windows')
+          .select('id, batch_id, session_id, title, opens_at, closes_at, status, batch:batch_id(id, title)')
+          .in('batch_id', batchIds)
+          .eq('status', 'open')
+          .lte('opens_at', new Date().toISOString())
+          .gte('closes_at', new Date().toISOString())
+          .order('closes_at', { ascending: true })
+      : Promise.resolve({ data: [] }),
   ])
 
   const sessions = sessionsRes.data || []
@@ -517,6 +565,7 @@ export async function getEmployeeTrainingData() {
   const notifications = notificationsRes.data || []
   const feedback = feedbackRes.data || []
   const quizzes = quizzesRes.data || []
+  const feedbackWindows = feedbackWindowsRes.data || []
 
   const nextSession = sessions.find((session: any) => session.status === 'scheduled')
   const attendanceRate = attendance.length
@@ -531,6 +580,7 @@ export async function getEmployeeTrainingData() {
     attendanceRate,
     notifications,
     feedback,
+    feedbackWindows,
     quizzes,
   }
 }
@@ -547,7 +597,7 @@ export async function createTrainingBatch(formData: FormData): Promise<ApiRespon
   const priority = asOptionalString(formData.get('priority'))
   const supportModel = asOptionalString(formData.get('support_model'))
   const timezone = asOptionalString(formData.get('timezone'))
-  const status = normalizeBatchStatus(asRequiredString(formData.get('status'), 'planned') || 'planned')
+  const status: TrainingBatchStatus = 'planned'
   const startDate = asOptionalString(formData.get('start_date'))
   const endDate = asOptionalString(formData.get('end_date'))
   const trainerId = asOptionalString(formData.get('trainer_id'))
@@ -631,6 +681,23 @@ export async function createTrainingBatch(formData: FormData): Promise<ApiRespon
     delivery_status: 'sent',
     sent_at: new Date().toISOString(),
     created_by: userId,
+  })
+
+  await admin.from('training_batch_change_audit').insert({
+    batch_id: batch.id,
+    change_type: 'batch_created',
+    previous_value: null,
+    new_value: {
+      title,
+      domain,
+      status,
+      start_date: startDate,
+      end_date: endDate,
+      trainer_ids: trainerIds,
+      learner_count: employeeIds.length,
+      linked_assessment_count: quizIds.length,
+    },
+    changed_by: userId,
   })
 
   revalidatePath('/manager')
@@ -978,7 +1045,7 @@ export async function createTrainingNotification(formData: FormData): Promise<Ap
     return { error: 'Notification title and message are required.' }
   }
 
-  const deliveryStatus = scheduledFor ? 'scheduled' : 'sent'
+  const deliveryStatus = scheduledFor ? 'scheduled' : channel === 'in_app' ? 'sent' : 'logged'
   const { error } = await admin.from('training_notifications').insert({
     batch_id: batchId,
     session_id: sessionId,
@@ -1052,8 +1119,8 @@ export async function createTrainingAssessmentSetup(formData: FormData): Promise
     message: scheduledAt ? `Assessment is scheduled for ${new Date(scheduledAt).toLocaleString()}.` : 'Assessment setup has been created.',
     audience: 'batch',
     channel: 'email',
-    delivery_status: 'sent',
-    sent_at: new Date().toISOString(),
+    delivery_status: scheduledAt ? 'scheduled' : 'logged',
+    scheduled_for: scheduledAt,
     created_by: userId,
   })
 
@@ -1164,12 +1231,13 @@ export async function runTrainingAutomationSweep({
         message: `No positive attendance was found after ${settings.attendanceCutoffTime}. Coordinator follow-up required.`,
         audience: 'coordinators',
         channel: 'email',
-        delivery_status: 'sent',
-        sent_at: new Date().toISOString(),
+        delivery_status: 'queued',
         created_by: actorId,
       }).select('id').single()
 
       // Send real email to coordinator
+      let sendAttempts = 0
+      let sendFailures = 0
       const coordinatorId = (session.batch as any)?.coordinator_id
       if (coordinatorId) {
         const { data: coord } = await admin.from('profiles').select('full_name, email').eq('id', coordinatorId).single()
@@ -1182,6 +1250,8 @@ export async function runTrainingAutomationSweep({
             coordinatorName: coord.full_name || coord.email,
           })
           const emailResult = await sendEmail({ to: coord.email, subject: `Attendance Cut-off Missed - ${session.title}`, html })
+          sendAttempts++
+          if (!emailResult.success) sendFailures++
           if (notif?.id) {
             await admin.from('training_notification_dispatch_log').insert({
               notification_id: notif.id,
@@ -1193,6 +1263,7 @@ export async function runTrainingAutomationSweep({
           }
         }
       }
+      await finalizeEmailNotification(admin, notif?.id, sendAttempts, sendFailures)
       notificationsCreated++
     }
   }
@@ -1213,12 +1284,13 @@ export async function runTrainingAutomationSweep({
         message: `Assessment is coming up on ${new Date(setup.scheduled_at).toLocaleString()}.`,
         audience: 'batch',
         channel: 'email',
-        delivery_status: 'sent',
-        sent_at: new Date().toISOString(),
+        delivery_status: 'queued',
         created_by: actorId,
       }).select('id').single()
 
       // Email every batch member
+      let sendAttempts = 0
+      let sendFailures = 0
       const { data: members } = await admin
         .from('batch_members')
         .select('profile:user_id(full_name, email)')
@@ -1233,6 +1305,8 @@ export async function runTrainingAutomationSweep({
           candidateName: profile.full_name || profile.email,
         })
         const emailResult = await sendEmail({ to: profile.email, subject: `Upcoming Assessment: ${setup.title}`, html })
+        sendAttempts++
+        if (!emailResult.success) sendFailures++
         if (notif?.id) {
           await admin.from('training_notification_dispatch_log').insert({
             notification_id: notif.id,
@@ -1243,6 +1317,7 @@ export async function runTrainingAutomationSweep({
           })
         }
       }
+      await finalizeEmailNotification(admin, notif?.id, sendAttempts, sendFailures)
       notificationsCreated++
     }
   }
@@ -1284,12 +1359,13 @@ export async function runTrainingAutomationSweep({
           message: `Candidate is absent across the latest ${settings.absenceAlertDays} attendance-required sessions. Coordinator follow-up required.`,
           audience: 'coordinators',
           channel: 'email',
-          delivery_status: 'sent',
-          sent_at: new Date().toISOString(),
+          delivery_status: 'queued',
           created_by: actorId,
         }).select('id').single()
 
         // Email coordinator
+        let sendAttempts = 0
+        let sendFailures = 0
         const { data: batchRec } = await admin.from('training_batches').select('coordinator_id, title').eq('id', targetBatchId).single()
         if (batchRec?.coordinator_id) {
           const { data: coord } = await admin.from('profiles').select('full_name, email').eq('id', batchRec.coordinator_id).single()
@@ -1302,6 +1378,8 @@ export async function runTrainingAutomationSweep({
               coordinatorName: coord.full_name || coord.email,
             })
             const emailResult = await sendEmail({ to: coord.email, subject: `Absence Alert - ${memberProfile?.full_name || memberProfile?.email}`, html })
+            sendAttempts++
+            if (!emailResult.success) sendFailures++
             if (notif?.id) {
               await admin.from('training_notification_dispatch_log').insert({
                 notification_id: notif.id,
@@ -1313,6 +1391,7 @@ export async function runTrainingAutomationSweep({
             }
           }
         }
+        await finalizeEmailNotification(admin, notif?.id, sendAttempts, sendFailures)
         notificationsCreated++
       }
     }
@@ -1335,12 +1414,13 @@ export async function runTrainingAutomationSweep({
         message: `Feedback window closes on ${new Date(window.closes_at).toLocaleString()}. Please complete training content and trainer effectiveness feedback.`,
         audience: 'batch',
         channel: 'email',
-        delivery_status: 'sent',
-        sent_at: new Date().toISOString(),
+        delivery_status: 'queued',
         created_by: actorId,
       }).select('id').single()
 
       // Email every batch member
+      let sendAttempts = 0
+      let sendFailures = 0
       const { data: members } = await admin
         .from('batch_members')
         .select('profile:user_id(full_name, email)')
@@ -1355,6 +1435,8 @@ export async function runTrainingAutomationSweep({
           candidateName: profile.full_name || profile.email,
         })
         const emailResult = await sendEmail({ to: profile.email, subject: `Feedback Requested - ${(window.batch as any)?.title || window.title}`, html })
+        sendAttempts++
+        if (!emailResult.success) sendFailures++
         if (notif?.id) {
           await admin.from('training_notification_dispatch_log').insert({
             notification_id: notif.id,
@@ -1365,6 +1447,7 @@ export async function runTrainingAutomationSweep({
           })
         }
       }
+      await finalizeEmailNotification(admin, notif?.id, sendAttempts, sendFailures)
       notificationsCreated++
     }
   }
@@ -1436,8 +1519,7 @@ export async function createFeedbackWindow(formData: FormData): Promise<ApiRespo
       message: `Feedback collection is open until ${new Date(closesAt).toLocaleString()}.`,
       audience: 'batch',
       channel: 'email',
-      delivery_status: 'sent',
-      sent_at: new Date().toISOString(),
+      delivery_status: 'queued',
       created_by: userId,
     })
     .select('id')
@@ -1445,23 +1527,13 @@ export async function createFeedbackWindow(formData: FormData): Promise<ApiRespo
 
   const { data: members } = await admin
     .from('batch_members')
-    .select('profile:user_id(email)')
+    .select('profile:user_id(full_name, email)')
     .eq('batch_id', batchId)
-
-  if (notification?.id && members?.length) {
-    await admin.from('training_notification_dispatch_log').insert(
-      members.map((member: any) => ({
-        notification_id: notification.id,
-        recipient_email: member.profile?.email || null,
-        channel: 'email',
-        provider_status: 'logged',
-        provider_message: 'Email dispatch logged for demo/governance. Connect SMTP provider for live sending.',
-      }))
-    )
-  }
 
   // Send real feedback request emails to all batch members
   const { data: batchInfo } = await admin.from('training_batches').select('title').eq('id', batchId).single()
+  let sendAttempts = 0
+  let sendFailures = 0
   for (const member of members || []) {
     const profile = (member as any).profile
     if (!profile?.email) continue
@@ -1476,6 +1548,8 @@ export async function createFeedbackWindow(formData: FormData): Promise<ApiRespo
       subject: `Feedback Requested - ${batchInfo?.title || title}`,
       html,
     })
+    sendAttempts++
+    if (!emailResult.success) sendFailures++
     if (notification?.id) {
       await admin.from('training_notification_dispatch_log').insert({
         notification_id: notification.id,
@@ -1487,6 +1561,8 @@ export async function createFeedbackWindow(formData: FormData): Promise<ApiRespo
     }
   }
 
+  await finalizeEmailNotification(admin, notification?.id, sendAttempts, sendFailures)
+
   revalidatePath('/manager/operations')
   revalidatePath('/employee/training')
   return { data: true }
@@ -1496,8 +1572,9 @@ export async function submitTrainingFeedback(formData: FormData): Promise<ApiRes
   const { userId } = await requireEmployee()
   const admin = createAdminClient()
 
-  const batchId = asOptionalString(formData.get('batch_id'))
-  const sessionId = asOptionalString(formData.get('session_id'))
+  const feedbackWindowId = asOptionalString(formData.get('feedback_window_id'))
+  let batchId = asOptionalString(formData.get('batch_id'))
+  let sessionId = asOptionalString(formData.get('session_id'))
   const rating = Number(asRequiredString(formData.get('rating'), '0'))
   const contentQualityRating = Number(asRequiredString(formData.get('content_quality_rating'), String(rating))) || rating
   const trainerEffectivenessRating = Number(asRequiredString(formData.get('trainer_effectiveness_rating'), String(rating))) || rating
@@ -1507,6 +1584,39 @@ export async function submitTrainingFeedback(formData: FormData): Promise<ApiRes
   if (!feedbackText || !rating) {
     return { error: 'Rating and feedback are required.' }
   }
+
+  if (!feedbackWindowId) {
+    return { error: 'Feedback can only be submitted from an open feedback window.' }
+  }
+
+  const now = new Date().toISOString()
+  const { data: feedbackWindow, error: feedbackWindowError } = await admin
+    .from('training_feedback_windows')
+    .select('id, batch_id, session_id, title, opens_at, closes_at, status')
+    .eq('id', feedbackWindowId)
+    .maybeSingle()
+
+  if (feedbackWindowError || !feedbackWindow) {
+    return { error: feedbackWindowError?.message || 'Feedback window was not found.' }
+  }
+
+  if (feedbackWindow.status !== 'open' || feedbackWindow.opens_at > now || feedbackWindow.closes_at < now) {
+    return { error: 'This feedback window is closed.' }
+  }
+
+  const { data: membership } = await admin
+    .from('batch_members')
+    .select('id')
+    .eq('batch_id', feedbackWindow.batch_id)
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (!membership) {
+    return { error: 'You can only submit feedback for batches assigned to you.' }
+  }
+
+  batchId = feedbackWindow.batch_id
+  sessionId = feedbackWindow.session_id || sessionId
 
   let sentiment: FeedbackSentiment = 'neutral'
   if (rating >= 4) sentiment = 'positive'

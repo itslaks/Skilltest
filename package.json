@@ -7,7 +7,8 @@
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
-    "test:smoke": "node scripts/browser-smoke.js"
+    "test:smoke": "node scripts/browser-smoke.js",
+    "fixtures:tms": "node scripts/generate-tms-upload-fixtures.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

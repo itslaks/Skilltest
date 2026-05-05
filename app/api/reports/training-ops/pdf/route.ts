@@ -16,11 +16,23 @@ export async function GET() {
     .limit(12)
 
   const batchIds = (batches || []).map((batch: any) => batch.id)
-  const [feedbackRes, projectRes, automationRes] = await Promise.all([
+  const [feedbackRes, projectRes, automationRes, notificationsRes] = await Promise.all([
     batchIds.length ? admin.from('training_feedback').select('id, batch_id').in('batch_id', batchIds) : Promise.resolve({ data: [] }),
     batchIds.length ? admin.from('training_project_evaluations').select('id, batch_id').in('batch_id', batchIds) : Promise.resolve({ data: [] }),
     batchIds.length ? admin.from('training_automation_runs').select('id, batch_id, notifications_created').in('batch_id', batchIds) : Promise.resolve({ data: [] }),
+    batchIds.length ? admin.from('training_notifications').select('id, batch_id, delivery_status').in('batch_id', batchIds) : Promise.resolve({ data: [] }),
   ])
+  const notificationIds = (notificationsRes.data || []).map((item: any) => item.id).filter(Boolean)
+  const dispatchRes = notificationIds.length
+    ? await admin
+        .from('training_notification_dispatch_log')
+        .select('provider_status')
+        .in('notification_id', notificationIds)
+    : { data: [] }
+  const dispatchLogs = dispatchRes.data || []
+  const dispatchSent = dispatchLogs.filter((item: any) => item.provider_status === 'sent').length
+  const dispatchFailed = dispatchLogs.filter((item: any) => item.provider_status === 'failed').length
+  const dispatchLogged = dispatchLogs.filter((item: any) => item.provider_status === 'logged').length
 
   const lines = [
     'skilltest_ai - Training Ops PDF Report',
@@ -39,6 +51,8 @@ export async function GET() {
     ]),
     `Feedback responses: ${feedbackRes.data?.length || 0}`,
     `Project evaluations: ${projectRes.data?.length || 0}`,
+    `Notifications: ${notificationsRes.data?.length || 0}`,
+    `Dispatch evidence: ${dispatchSent} sent, ${dispatchFailed} failed, ${dispatchLogged} logged`,
     `Automation notifications created: ${(automationRes.data || []).reduce((sum: number, item: any) => sum + Number(item.notifications_created || 0), 0)}`,
     '',
     'Detailed attendance, assessment setup, feedback, topper, project, and notification sheets are available in the Excel export.',

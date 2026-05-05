@@ -27,6 +27,7 @@ export default async function EmployeeTrainingPage() {
     attendanceRate,
     notifications,
     feedback,
+    feedbackWindows,
     quizzes,
   } = await getEmployeeTrainingData()
 
@@ -159,28 +160,21 @@ export default async function EmployeeTrainingPage() {
         <Card className="border-zinc-200 shadow-sm spotlight-card">
           <CardHeader>
             <CardTitle>Submit Training Feedback</CardTitle>
-            <CardDescription>Feedback is now part of the operational flow, not an afterthought.</CardDescription>
+            <CardDescription>Feedback opens only during coordinator-controlled collection windows.</CardDescription>
           </CardHeader>
           <CardContent>
+            {feedbackWindows.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-6 text-sm text-zinc-500">
+                No feedback window is open right now.
+              </div>
+            ) : (
             <form action={submitTrainingFeedbackAction} className="grid gap-4">
               <label className="grid gap-2 text-sm">
-                <span className="font-medium">Batch</span>
-                <select name="batch_id" className="h-11 rounded-xl border border-zinc-200 px-3">
-                  <option value="">Optional</option>
-                  {memberships.map((membership: any) => (
-                    <option key={membership.batch_id} value={membership.batch_id}>
-                      {membership.batch?.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-2 text-sm">
-                <span className="font-medium">Session</span>
-                <select name="session_id" className="h-11 rounded-xl border border-zinc-200 px-3">
-                  <option value="">Optional</option>
-                  {sessions.map((session: any) => (
-                    <option key={session.id} value={session.id}>
-                      {session.title}
+                <span className="font-medium">Feedback window</span>
+                <select name="feedback_window_id" required className="h-11 rounded-xl border border-zinc-200 px-3">
+                  {feedbackWindows.map((window: any) => (
+                    <option key={window.id} value={window.id}>
+                      {window.batch?.title || 'Batch'} - {window.title} - closes {new Date(window.closes_at).toLocaleDateString()}
                     </option>
                   ))}
                 </select>
@@ -227,6 +221,7 @@ export default async function EmployeeTrainingPage() {
               </label>
               <Button type="submit" className="rounded-full bg-black text-white hover:bg-zinc-800">Submit feedback</Button>
             </form>
+            )}
           </CardContent>
         </Card>
 

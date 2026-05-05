@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
         })
         await sendEmail({
           to: uploaderProfile.email,
-          subject: `Assessment Upload Confirmed — ${insertedCount} records imported`,
+          subject: `Assessment Upload Confirmed - ${insertedCount} records imported`,
           html: emailHtml,
         })
       }

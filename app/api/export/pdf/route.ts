@@ -58,7 +58,8 @@ export async function GET(request: NextRequest) {
   const govMap = new Map((govRows || []).map((r: any) => [r.key, Number(r.value)]))
   const weights = normalizeTopperWeights({ assessment: govMap.get('topper_assessment_weight') ?? 70, project: govMap.get('topper_project_weight') ?? 30, minAttendance: govMap.get('topper_min_attendance') ?? 75 })
 
-  let batchQuery = admin.from('training_batches').select('id, title, domain, status, start_date, end_date, trainer:trainer_id(full_name, email), coordinator:coordinator_id(full_name, email)').or(`created_by.eq.${userId},coordinator_id.eq.${userId},trainer_id.eq.${userId}`)
+  let batchQuery = admin.from('training_batches').select('id, title, domain, status, start_date, end_date, trainer:trainer_id(full_name, email), coordinator:coordinator_id(full_name, email)')
+  if (role !== 'admin') batchQuery = batchQuery.or(`created_by.eq.${userId},coordinator_id.eq.${userId},trainer_id.eq.${userId}`)
   if (batchId) batchQuery = batchQuery.eq('id', batchId)
   const { data: batches } = await batchQuery.order('created_at', { ascending: false })
   const batchIds = (batches || []).map((b: any) => b.id)
@@ -66,12 +67,14 @@ export async function GET(request: NextRequest) {
 
   if (!batchIds.length) return NextResponse.json({ error: 'No batches found' }, { status: 404 })
 
-  const [{ data: allMembers }, { data: sessions }, { data: projectEvals }, { data: importResults }, { data: feedbackItems }] = await Promise.all([
+  const [{ data: allMembers }, { data: sessions }, { data: projectEvals }, { data: importResults }, { data: feedbackItems }, { data: assessmentSetups }, { data: assessmentUploads }] = await Promise.all([
     admin.from('batch_members').select('batch_id, user_id, enrollment_status, profile:user_id(full_name, email, employee_id, department)').in('batch_id', batchIds),
     admin.from('training_sessions').select('id, batch_id, attendance_required, status, session_date').in('batch_id', batchIds).neq('status', 'cancelled'),
     admin.from('training_project_evaluations').select('batch_id, user_id, score').in('batch_id', batchIds),
-    admin.from('assessment_results').select('batch_id, candidate_email, percentage').in('batch_id', batchIds),
+    admin.from('assessment_results').select('batch_id, assessment_setup_id, candidate_name, candidate_email, candidate_score, percentage, test_name, test_status, appeared_on').in('batch_id', batchIds),
     admin.from('training_feedback').select('batch_id, user_id, rating, sentiment, content_quality_rating, trainer_effectiveness_rating').in('batch_id', batchIds),
+    admin.from('training_assessment_setups').select('id, batch_id, title, assessment_type, scheduled_at, max_score, passing_score, status, template_name, question_file_name').in('batch_id', batchIds),
+    admin.from('training_assessment_uploads').select('batch_id, assessment_setup_id, file_name, total_records, successful_records, failed_records, duplicate_records, created_at').in('batch_id', batchIds),
   ])
 
   const sessionIds = (sessions || []).map((s: any) => s.id)
@@ -195,6 +198,148 @@ export async function GET(request: NextRequest) {
     })
   }
 
+  if (reportType === 'assessment') {
+    const targetBatch = batchId ? batchMap.get(batchId) : null
+    header('Batch Assessment Report', targetBatch ? `Batch: ${targetBatch.title}` : 'All Batches')
+
+    const setupById = new Map((assessmentSetups || []).map((setup: any) => [setup.id, setup]))
+    const resultScope = batchId ? (importResults || []).filter((item: any) => item.batch_id === batchId) : importResults || []
+    const setupScope = batchId ? (assessmentSetups || []).filter((item: any) => item.batch_id === batchId) : assessmentSetups || []
+    const uploadScope = batchId ? (assessmentUploads || []).filter((item: any) => item.batch_id === batchId) : assessmentUploads || []
+
+    const summaryRows = (batches || [])
+      .filter((batch: any) => !batchId || batch.id === batchId)
+      .map((batch: any) => {
+        const batchResults = resultScope.filter((result: any) => result.batch_id === batch.id)
+        const batchSetups = setupScope.filter((setup: any) => setup.batch_id === batch.id)
+        const passed = batchResults.filter((result: any) => {
+          const setup = setupById.get(result.assessment_setup_id)
+          const threshold = Number(setup?.passing_score ?? 70)
+          return Number(result.percentage ?? result.candidate_score ?? 0) >= threshold
+        }).length
+        const avgScore = averageScore(batchResults.map((result: any) => Number(result.percentage ?? result.candidate_score ?? 0)))
+        const clearanceRate = batchResults.length ? Math.round((passed / batchResults.length) * 100) : 0
+        return [
+          batch.title,
+          batch.status,
+          batchSetups.length.toString(),
+          batchResults.length.toString(),
+          `${avgScore}%`,
+          `${clearanceRate}%`,
+          passed.toString(),
+          Math.max(0, batchResults.length - passed).toString(),
+        ]
+      })
+
+    autoTable(doc, {
+      startY: 50,
+      head: [['Batch', 'Status', 'Assessment Setups', 'Score Rows', 'Avg Score', 'Clearance', 'Passed', 'Not Cleared']],
+      body: summaryRows,
+      theme: 'grid',
+      headStyles: { fillColor: accentColor, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      bodyStyles: { fontSize: 7 },
+      margin: { left: 14, right: 14 },
+    })
+
+    doc.addPage()
+    doc.setFillColor(...brandColor)
+    doc.rect(0, 0, 297, 10, 'F')
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(255, 255, 255)
+    doc.text('Assessment Setup & Schedule', 14, 7)
+
+    autoTable(doc, {
+      startY: 15,
+      head: [['Batch', 'Assessment', 'Type', 'Scheduled', 'Max', 'Passing', 'Status', 'Template / Evidence']],
+      body: setupScope.map((setup: any) => {
+        const batch = batchMap.get(setup.batch_id)
+        return [
+          batch?.title || '',
+          setup.title || '',
+          String(setup.assessment_type || '').replaceAll('_', ' '),
+          setup.scheduled_at ? new Date(setup.scheduled_at).toLocaleString() : 'Not scheduled',
+          String(setup.max_score ?? 100),
+          String(setup.passing_score ?? 70),
+          setup.status || '',
+          setup.question_file_name || setup.template_name || '',
+        ]
+      }),
+      theme: 'striped',
+      headStyles: { fillColor: accentColor, textColor: 255, fontStyle: 'bold', fontSize: 7 },
+      bodyStyles: { fontSize: 6.5 },
+      margin: { left: 14, right: 14 },
+    })
+
+    doc.addPage()
+    doc.setFillColor(...brandColor)
+    doc.rect(0, 0, 297, 10, 'F')
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(255, 255, 255)
+    doc.text('Candidate Assessment Results', 14, 7)
+
+    autoTable(doc, {
+      startY: 15,
+      head: [['Batch', 'Assessment', 'Candidate', 'Email', 'Score', 'Pass Mark', 'Result', 'Appeared On']],
+      body: resultScope.map((result: any) => {
+        const batch = batchMap.get(result.batch_id)
+        const setup = setupById.get(result.assessment_setup_id)
+        const score = Number(result.percentage ?? result.candidate_score ?? 0)
+        const threshold = Number(setup?.passing_score ?? 70)
+        return [
+          batch?.title || '',
+          setup?.title || result.test_name || 'General upload',
+          result.candidate_name || '',
+          result.candidate_email || '',
+          `${score}%`,
+          String(threshold),
+          score >= threshold ? 'CLEARED' : 'NOT CLEARED',
+          result.appeared_on ? new Date(result.appeared_on).toLocaleDateString() : '',
+        ]
+      }),
+      theme: 'grid',
+      headStyles: { fillColor: [30, 30, 30], textColor: 255, fontStyle: 'bold', fontSize: 7 },
+      bodyStyles: { fontSize: 6.5 },
+      margin: { left: 14, right: 14 },
+      didParseCell: (data: any) => {
+        if (data.cell.raw === 'NOT CLEARED') { data.cell.styles.textColor = [200, 0, 0]; data.cell.styles.fontStyle = 'bold' }
+        if (data.cell.raw === 'CLEARED') { data.cell.styles.textColor = [16, 128, 0]; data.cell.styles.fontStyle = 'bold' }
+      },
+    })
+
+    if (uploadScope.length > 0) {
+      doc.addPage()
+      doc.setFillColor(...brandColor)
+      doc.rect(0, 0, 297, 10, 'F')
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(255, 255, 255)
+      doc.text('Assessment Upload Audit', 14, 7)
+
+      autoTable(doc, {
+        startY: 15,
+        head: [['Batch', 'File', 'Total', 'Successful', 'Failed', 'Duplicates', 'Uploaded At']],
+        body: uploadScope.map((upload: any) => {
+          const batch = batchMap.get(upload.batch_id)
+          return [
+            batch?.title || '',
+            upload.file_name || '',
+            String(upload.total_records ?? 0),
+            String(upload.successful_records ?? 0),
+            String(upload.failed_records ?? 0),
+            String(upload.duplicate_records ?? 0),
+            upload.created_at ? new Date(upload.created_at).toLocaleString() : '',
+          ]
+        }),
+        theme: 'grid',
+        headStyles: { fillColor: accentColor, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
+        margin: { left: 14, right: 14 },
+      })
+    }
+  }
+
   if (reportType === 'feedback') {
     const targetBatch = batchId ? batchMap.get(batchId) : null
     header('Training Feedback Report', targetBatch ? `Batch: ${targetBatch.title}` : 'All Batches')
@@ -220,7 +365,7 @@ export async function GET(request: NextRequest) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     doc.setFontSize(7); doc.setTextColor(150, 150, 150); doc.setFont('helvetica', 'normal')
-    doc.text(`Maverick Execution Platform — Confidential | Page ${i} of ${pageCount}`, 14, 207)
+    doc.text(`Maverick Execution Platform - Confidential | Page ${i} of ${pageCount}`, 14, 207)
     doc.text(`Generated ${timestamp}`, 200, 207)
   }
 

@@ -114,7 +114,7 @@ export type SessionStatus = 'scheduled' | 'completed' | 'cancelled'
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
 export type NotificationAudience = 'batch' | 'trainers' | 'coordinators' | 'individual'
 export type NotificationChannel = 'in_app' | 'email' | 'whatsapp'
-export type NotificationDeliveryStatus = 'draft' | 'scheduled' | 'sent'
+export type NotificationDeliveryStatus = 'draft' | 'scheduled' | 'queued' | 'sent' | 'failed' | 'logged'
 export type FeedbackSentiment = 'positive' | 'neutral' | 'negative'
 
 export interface TrainingBatch {

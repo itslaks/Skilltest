@@ -114,6 +114,12 @@ export function TmsBatchDownloads({ batches }: Props) {
                       Attendance PDF
                     </Button>
                   </a>
+                  <a href={`/api/export/pdf?type=assessment&batchId=${batch.id}`} download>
+                    <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100">
+                      <FileText className="h-3.5 w-3.5" />
+                      Assessment PDF
+                    </Button>
+                  </a>
                   <a href={`/api/export/pdf?type=toppers&batchId=${batch.id}`} download>
                     <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100">
                       <FileText className="h-3.5 w-3.5" />
@@ -137,7 +143,7 @@ export function TmsBatchDownloads({ batches }: Props) {
                 {/* Filter shortcuts */}
                 <div className="mt-3 pt-3 border-t border-zinc-200">
                   <p className="text-xs text-zinc-400 mb-2 font-medium uppercase tracking-wide">
-                    Consolidated — Filter by status
+                    Consolidated - Filter by status
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {(['discontinued', 'not_cleared', 'offered', 'onboarded'] as const).map((filter) => (
