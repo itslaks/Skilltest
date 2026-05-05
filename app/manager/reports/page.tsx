@@ -23,6 +23,9 @@ import { DownloadReportButton } from '@/components/manager/download-report-butto
 import { QuickDeleteButton } from '@/components/manager/quick-delete-button'
 import { TmsBatchDownloads } from '@/components/manager/tms-batch-downloads'
 import { OpsAutoRefresh } from '@/components/manager/ops-auto-refresh'
+import { TrainerPerformancePanel } from '@/components/manager/trainer-performance-panel'
+import { FeedbackSentimentChart } from '@/components/manager/feedback-sentiment-chart'
+import { AiInsightCard } from '@/components/manager/ai-insight-card'
 import { averageScore, computeTopperScore } from '@/lib/topper'
 import { getAccessibleTrainingBatchIds } from '@/lib/training-access'
 
@@ -408,36 +411,13 @@ export default async function ManagerReportsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {trainerMetrics.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-indigo-200 bg-white/70 p-6 text-center text-sm text-indigo-800">No trainer data available yet.</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {trainerMetrics.map(trainer => (
-                <div key={trainer.id} className="rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
-                  <p className="font-semibold text-indigo-950 truncate" title={trainer.name}>{trainer.name}</p>
-                  <p className="text-xs text-indigo-600/70 truncate mb-3">{trainer.email}</p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="rounded-lg bg-indigo-50 p-2 text-center">
-                      <p className="text-[10px] uppercase tracking-wider text-indigo-600/70 mb-1">Batches</p>
-                      <p className="text-lg font-bold text-indigo-950">{trainer.batchesCount}</p>
-                    </div>
-                    <div className="rounded-lg bg-indigo-50 p-2 text-center">
-                      <p className="text-[10px] uppercase tracking-wider text-indigo-600/70 mb-1">Attendance</p>
-                      <p className="text-lg font-bold text-indigo-950">{trainer.attendanceRate}%</p>
-                    </div>
-                    <div className="rounded-lg bg-indigo-50 p-2 text-center">
-                      <p className="text-[10px] uppercase tracking-wider text-indigo-600/70 mb-1">Avg Score</p>
-                      <p className="text-lg font-bold text-indigo-950">{trainer.avgScore}%</p>
-                    </div>
-                    <div className="rounded-lg bg-indigo-50 p-2 text-center">
-                      <p className="text-[10px] uppercase tracking-wider text-indigo-600/70 mb-1">Feedback</p>
-                      <p className="text-lg font-bold text-indigo-950">{trainer.avgFeedback}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <TrainerPerformancePanel trainers={trainerMetrics} />
+          <AiInsightCard
+            type="trainer_performance"
+            data={trainerMetrics.slice(0, 8).map((t: any) => ({ name: t.name, attendance: t.attendanceRate, avgScore: t.avgScore, sessions: t.sessionCount }))}
+            label="AI Coaching Tip"
+            className="mt-4"
+          />
         </CardContent>
       </Card>
 

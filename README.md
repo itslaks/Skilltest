@@ -1,370 +1,272 @@
-# 🚀 Maverick Execution Platform
+# SkillTest AI
 
-## Training Management System (TMS)
+**AI-powered Training Management System** — built for enterprise learning teams who need real operations, not just dashboards.
 
-> A modern execution and governance platform for training batches, candidates, trainers, attendance, assessments, feedback, alerts, dashboards, and reports.
-
-Built as a contest-ready, BRD-aligned Training Management System for non-technical Admins, Training Coordinators, Trainers, and Employees.
+SkillTest AI combines intelligent quiz generation, end-to-end training operations, real-time attendance tracking, AI coaching insights, and automated reporting in a single platform designed for non-technical trainers, coordinators, and learners.
 
 ---
 
-## ✨ Why This Project Stands Out
+## What Makes SkillTest AI Different
 
-Maverick TMS is not just another dashboard. It is designed like an operations control room: every important action is visible, every workflow is guided, and every metric helps teams act faster.
-
-### 🏆 Competition Differentiators
-
-- 🎯 **Maverick command-center UI** with visible quick actions for non-technical users
-- 📊 **Batch-wise comparison dashboard** across attendance, clearance, outcomes, and training health
-- 🧬 **Batch DNA radar chart** for side-by-side execution quality
-- 👨‍🏫 **Trainer scorecards** with batch count, attendance impact, assessment averages, and feedback ratings
-- ✅ **Assessment clearance rate** calculated per batch across assessment types
-- 📅 **Schedule timeline** for sessions, assessments, feedback windows, and milestones
-- 🧾 **Candidate status management** for active, discontinued, not-cleared, offered, and onboarded candidates
-- 📁 **Real evidence/question-file uploads** through Supabase Storage
-- 💬 **Feedback analytics** with standalone reporting support
-- 🤖 **AI and behavioral insights** for readiness, cognitive load, knowledge decay, and trainer impact
-- 🔔 **Automated governance alerts** for missed attendance, absence streaks, assessment reminders, and feedback follow-ups
-
----
-
-## 📌 Business Purpose
-
-The platform centralizes the complete training lifecycle:
-
-- Batch creation and lifecycle governance
-- Candidate onboarding and batch assignment
-- Trainer coordination
-- Attendance tracking
-- Excel-based assessment score uploads
-- Project evaluation evidence
-- Feedback initiation and analysis
-- Topper identification
-- Dashboards and exportable reports
-- Audit logs, notification logs, and automation history
-
-It replaces manual spreadsheet follow-ups with a controlled, auditable, system-driven workflow.
-
----
-
-## 👥 User Roles
-
-| Role | Main Responsibilities |
+| Capability | Details |
 |---|---|
-| 🛡️ Admin | Manage users, roles, trainers, settings, topper criteria, and governance controls |
-| 🧭 Training Coordinator / Manager | Create batches, manage schedules, upload candidates, monitor dashboards, trigger feedback, download reports |
-| 👨‍🏫 Trainer | Upload attendance, assessment scores, project scores, evidence files, and daily execution inputs |
-| 👩‍🎓 Employee / Candidate | View training details, take assigned assessments, track progress, and submit feedback |
-
-RBAC is enforced through server-side route checks, Supabase role data, and scoped access helpers.
-
----
-
-## ✅ BRD Coverage
-
-| BRD Area | Status | Implementation |
-|---|---:|---|
-| Batch lifecycle management | ✅ Complete | Planned, Running, Completed, Closed lifecycle with candidate mapping |
-| Candidate onboarding | ✅ Complete | Excel import, validation, duplicate detection, row-level errors |
-| Trainer coordination | ✅ Complete | Trainer assignment, trainer approval, trainer-scoped access |
-| Attendance tracking | ✅ Complete | Manual entry, Excel upload, cut-off logic, absence streak tracking |
-| Assessment score tracking | ✅ Complete | Excel uploads, score validation, assessment setup, clearance metrics |
-| Notifications and alerts | ✅ Complete | Resend email support, dispatch logs, Vercel cron automation |
-| Feedback management | ✅ Complete | Feedback windows, reminders, responses, analytics, exports |
-| Dashboards and metrics | ✅ Complete | Operations dashboard, trainer metrics, batch comparison, clearance rates |
-| Reports and downloads | ✅ Complete | Attendance, assessment, feedback, toppers, consolidated, PDF/Excel exports |
-| Topper identification | ✅ Complete | Configurable scoring and reproducible ranking logic |
-| Audit and logging | ✅ Complete | Upload logs, notification logs, automation runs, modification tracking |
-| Non-technical UI | ✅ Improved | Visible actions, stronger contrast, hints, quick-action layout |
+| **AI Quiz Generation** | Generate MCQs from a topic or uploaded content (PDF/DOCX) in a single API call. OpenAI (gpt-4o-mini) preferred, Gemini 1.5 Flash fallback. |
+| **AI Coaching Insights** | `/api/ai-insight` — managers get 2-sentence coaching tips on batch health, attendance, trainer performance, and quiz results. Capped at 200 tokens. |
+| **AI Learning Recommendations** | `/api/ai-recommend` — employees receive personalised next-step coaching based on their streak, pass rate, and retention risk. 150 tokens per call. |
+| **AI Assessment Chat** | Upload an assessment Excel → chat with AI to analyse scores, identify weak areas, and get remediation suggestions. |
+| **Training Operations** | Full batch lifecycle: create batch → assign candidates & trainers → schedule sessions → mark attendance → upload scores → evaluate projects → download reports. |
+| **Role-Based Access** | Admin / Manager / Training Coordinator / Trainer / Employee — each sees exactly what they need. |
+| **Attendance System** | Cut-off enforcement, late-reason audit log, bulk Excel import with row-level validation. |
+| **Assessment Import** | Score upload with duplicate detection, passing-score rules, and per-row error reporting. |
+| **PDF & Excel Exports** | One-click reports: attendance, assessment, feedback, trainer performance, consolidated TMS. |
+| **Feedback System** | Coordinator-controlled feedback windows → employee submission → AI sentiment analysis for managers. |
+| **Gamification** | Points, streaks, badges, and live leaderboard for learners. |
+| **Notifications** | Email (Resend) + in-app notifications for sessions, reminders, and alerts. |
 
 ---
 
-## 🧩 Core Features
-
-### 🎓 Batch Management
-
-- Create, edit, complete, and close batches
-- Assign one or more trainers
-- Define schedules, assessment dates, and feedback windows
-- Upload candidate master data through Excel
-- Manage candidate lifecycle status directly
-
-### 🕘 Attendance Tracker
-
-- Manual attendance entry
-- Excel attendance upload
-- Configurable 10:00 AM cut-off
-- Duplicate, missing candidate, and invalid batch validation
-- Row-level validation feedback
-- Consecutive absence alerts
-- Versioned attendance records and upload logs
-
-### 🧪 Assessment Tracker
-
-- Sprint review, API/coding, coding, project, and custom assessment types
-- Excel score uploads
-- Candidate and batch mapping validation
-- Score range validation
-- Duplicate upload detection
-- Project evidence and question-file upload support
-
-### 🔔 Notifications and Governance
-
-- Attendance not submitted before cut-off
-- Three-day continuous absence alerts
-- Successful attendance and assessment upload confirmations
-- Upcoming assessment reminders
-- Feedback request and closure reminders
-- Notification logs with timestamp and recipient details
-- Scheduled automation through Vercel Cron
-
-### 💬 Feedback Management
-
-- Coordinator-triggered feedback collection
-- Feedback windows and closure timelines
-- Training content quality ratings
-- Trainer effectiveness ratings
-- Batch-wise storage and analytics
-- Standalone and consolidated feedback reporting
-
-### 📊 Dashboards and Reports
-
-- Total candidates
-- Discontinued candidates
-- Not-cleared candidates
-- Offered/onboarded candidates
-- Remaining candidates in training
-- Attendance percentage per batch
-- Assessment clearance rate
-- Trainer-wise performance metrics
-- Batch-wise comparison across programs
-- Topper lists per batch and across batches
-- Excel and PDF exports
-
----
-
-## 🎨 UI/UX Direction
-
-The application is designed for non-technical users, so the interface intentionally avoids hidden workflows.
-
-- Important actions are visible in the manager quick-action strip
-- Navigation labels include helpful descriptions
-- Form text and dashboard labels use stronger contrast
-- Landing page copy explains the system in plain business language
-- Mobile navigation is explicit and readable
-- Motion is smoother and respects reduced-motion preferences
-- The look is customized for a training operations platform, not a generic AI template
-
----
-
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 16 App Router |
-| Language | TypeScript |
-| Database | Supabase PostgreSQL |
-| Auth | Supabase Auth |
-| Storage | Supabase Storage |
-| Styling | Tailwind CSS |
-| UI Components | shadcn/ui, Radix UI |
-| Icons | lucide-react |
-| Charts | Recharts |
-| Reports | xlsx, jsPDF |
+| Framework | Next.js 14 App Router (React Server Components) |
+| Database & Auth | Supabase (PostgreSQL + Row-Level Security) |
+| AI | OpenAI GPT-4o-mini (primary) · Google Gemini 1.5 Flash (fallback) |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| Charts | Recharts (bar, pie/donut, radar) |
 | Email | Resend |
-| Validation | Zod |
-| Browser Tests | Playwright |
+| Excel | SheetJS (xlsx) |
+| PDF | jsPDF + jspdf-autotable |
+| Storage | Supabase Storage (training evidence) |
+| Deployment | Vercel |
 
 ---
 
-## 📂 Project Structure
+## AI Integration Architecture
 
-```text
-app/
-  api/                 API routes for imports, exports, cron, AI, reports
-  auth/                Login, sign-up, reset password, approval screens
-  employee/            Employee/candidate portal
-  manager/             Admin, coordinator, trainer, operations, reports
+All AI calls go through `lib/ai.ts` — a single shared utility that:
 
-components/
-  landing/             Public landing experience
-  manager/             Manager dashboards, importers, reports, navigation
-  employee/            Candidate-facing UI
-  ui/                  Shared shadcn/Radix primitives
+- Picks **OpenAI** if `OPENAI_API_KEY` is set, **Gemini** otherwise
+- Enforces per-endpoint `max_tokens` caps to keep costs controlled
+- Provides `buildCompactAssessmentContext()` — pipe-delimited rows vs verbose JSON (~60% token reduction)
+- Provides `stripCodeFences()` for safe JSON parsing from AI responses
 
-lib/
-  actions/             Server actions and training automation logic
-  supabase/            Supabase clients
-  training-access.ts   Role and batch access helpers
-  types/               Shared TypeScript definitions
+### AI Endpoints
 
-scripts/
-  *.sql                Supabase migrations
-  browser-smoke.js     Smoke test script
-```
+| Endpoint | Purpose | Max Tokens |
+|---|---|---|
+| `POST /api/ai-chat` | Manager assessment chat with history | 600 |
+| `POST /api/ai-insight` | Coaching insight (batch/attendance/trainer/quiz) | 200 |
+| `POST /api/ai-recommend` | Employee personalised learning recommendation | 150 |
+| `POST /api/generate-questions` | AI quiz generation from topic (single call) | 4000 |
+| `POST /api/generate-from-content` | AI quiz from uploaded content (single call) | 4000 |
+
+**Token efficiency improvement:** Question generation was previously N separate API calls (one per difficulty). It is now a single batched call, reducing costs by up to 80% for a 5-difficulty quiz.
 
 ---
 
-## ⚙️ Environment Setup
+## Roles & Capabilities
 
-Copy `.env.example` or `.env.local.example` into `.env.local`, then configure:
+### Admin
+- Full platform governance
+- Manage all users, batches, quizzes, settings
+- Trainer approval workflow
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+### Manager / Training Coordinator
+- Create and manage training batches
+- Assign candidates and trainers
+- Monitor attendance health, session schedule
+- AI-powered dashboard insights
+- Download PDF and Excel reports
+- AI assessment analyser with chat
 
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-CRON_SECRET=replace_with_a_long_random_secret
+### Trainer
+- Guided daily workflow: mark attendance → upload scores → submit evaluations
+- Step-by-step trainer workspace (no technical knowledge required)
+- Scoped to assigned batches only
 
-RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-EMAIL_FROM=Maverick TMS <noreply@yourdomain.com>
-
-OPENAI_API_KEY=optional
-GOOGLE_GEMINI_API_KEY=optional
-```
-
-### 🔐 Important Production Notes
-
-- `CRON_SECRET` must be a long random value in production.
-- Resend configuration is required for email alerts and reminders.
-- Supabase Storage buckets/policies must allow approved evidence and question-file uploads.
-- Supabase SQL migrations must be applied before production demos.
-
----
-
-## 🗄️ Database Migrations
-
-Run the SQL scripts from `scripts/` in order, starting at:
-
-```text
-scripts/001_create_profiles.sql
-```
-
-Continue through the latest migration, including:
-
-```text
-scripts/024_complete_brd_tms_controls.sql
-scripts/025_trainer_approval.sql
-```
-
-These scripts enable the BRD-aligned TMS controls, approval workflow, audit tables, automation logs, and governance data.
+### Employee / Learner
+- Personalised AI learning recommendation on dashboard
+- Quiz assignments with readiness signals
+- Training schedule, attendance history, reminders
+- Feedback submission, gamification (points, streak, badges)
 
 ---
 
-## 🚦 Scheduled Automation
+## Getting Started
 
-The app includes a secure cron route:
-
-```text
-GET /api/cron/training-governance
-```
-
-Configured in `vercel.json`:
-
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/training-governance",
-      "schedule": "30 4 * * *"
-    }
-  ]
-}
-```
-
-The route runs:
-
-- Attendance cut-off checks
-- Absence streak checks
-- Assessment reminders
-- Feedback reminders
-
-Manual secure trigger:
+### Prerequisites
 
 ```bash
-curl -H "Authorization: Bearer YOUR_CRON_SECRET" \
-  "https://your-app.vercel.app/api/cron/training-governance"
+# Node.js 20+, npm or pnpm
+# Supabase project
+# OpenAI API key (or Google Gemini API key)
+# Resend account for email
 ```
 
----
+### Environment Variables
 
-## ▶️ Run Locally
+Create `.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+OPENAI_API_KEY=your_openai_key          # Primary AI provider
+GOOGLE_GEMINI_API_KEY=your_gemini_key   # Fallback AI provider
+RESEND_API_KEY=your_resend_key
+```
+
+### Install & Run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open:
+### Database Setup
 
-```text
-http://localhost:3000
-```
+Run scripts in order from `scripts/` (001 through 028) in your Supabase SQL editor.
 
 ---
 
-## 🧪 Verification
+## Key Pages
 
-Run the production build:
-
-```bash
-npm run build
-```
-
-Run the smoke test:
-
-```bash
-npm run test:smoke
-```
-
-Optional lint check:
-
-```bash
-npm run lint
-```
-
----
-
-## 🔑 Demo Routes
-
-| Screen | Route |
-|---|---|
-| Landing Page | `/` |
-| Login | `/auth/login` |
-| Manager Dashboard | `/manager` |
-| Admin Governance | `/manager/admin` |
-| Operations Control Room | `/manager/operations` |
-| Reports / Evidence Desk | `/manager/reports` |
-| Employee Training Hub | `/employee/training` |
-
----
-
-## 👤 Demo Credentials
-
-| Role | Email | Password |
+| URL | Role | Purpose |
 |---|---|---|
-| Admin | `admin@hexaware.com` | `Zxcv,0987` |
-| Trainer | `trainer@hexaware.com` | `Asdf,1234` |
-
-> Update these credentials before any real deployment.
-
----
-
-## 🏁 Contest Demo Flow
-
-1. 🚀 Start on the landing page and show the customized Maverick experience.
-2. 🧭 Log in as manager/admin and open the operations control room.
-3. 📊 Show batch comparison, trainer scorecards, clearance rates, and status metrics.
-4. 🕘 Upload attendance and explain cut-off plus absence alerts.
-5. 🧪 Upload assessment scores and evidence files.
-6. 💬 Trigger feedback and show feedback analytics.
-7. 🏆 Generate toppers and download reports.
-8. 🔔 Show automation credibility: cron, logs, alerts, and audit evidence.
+| `/manager` | Manager | Dashboard with AI batch health insight, TMS live status |
+| `/manager/operations` | Manager/Trainer | Full TMS — batches, sessions, attendance, scores |
+| `/manager/analytics` | Manager | AI assessment analyser + chat |
+| `/manager/reports` | Manager | Trainer performance + AI coaching tip + exports |
+| `/employee` | Learner | Dashboard with personalised AI recommendation |
+| `/employee/training` | Learner | Training schedule, attendance, feedback |
+| `/employee/quizzes` | Learner | Assigned assessments |
 
 ---
 
-## 📜 License
+## Project Structure
 
-Internal academic/capstone use for the Maverick Execution Platform.
+```
+app/
+  api/
+    ai-chat/          # Assessment chat with history
+    ai-insight/       # Manager coaching insights (200 tokens)
+    ai-recommend/     # Employee learning recommendations (150 tokens)
+    generate-questions/   # Topic-based quiz generation (1 API call)
+    generate-from-content/ # Content-based quiz generation (1 API call)
+    training/         # Attendance import, session management
+    export/           # PDF & Excel report generation
+  manager/            # All manager/trainer pages
+  employee/           # All learner pages
+components/
+  manager/
+    ai-insight-card.tsx   # Reusable AI coaching widget
+    trainer-performance-panel.tsx
+    feedback-sentiment-chart.tsx
+  employee/
+    ai-learn-recommend.tsx  # Employee AI coaching widget
+lib/
+  ai.ts              # Shared AI utility (callAI, buildCompactAssessmentContext)
+  actions/           # Server actions (training, quiz, employee)
+  supabase/          # DB clients
+scripts/             # SQL migrations (001-028)
+```
 
+---
+
+## AI Features Demonstration
+
+### 1. Manager Dashboard AI Insight
+When you load `/manager`, the dashboard automatically shows:
+- **AI Batch Health Insight** — analyses active batches, attendance rate, alerts, and gives one actionable 2-sentence recommendation
+- Real-time data from TMS + AI processing in <1 second
+
+### 2. Employee Learning Coach
+When a learner loads `/employee`, they see:
+- **SkillTest AI — Your Coach** card with personalised recommendation based on their points, streak, completed quizzes, and retention risk
+- Example: "Your 7-day streak is strong—keep it going by tackling JavaScript Basics next. With 85% pass rate, you're ready for medium difficulty."
+
+### 3. Trainer Performance AI Coaching
+On `/manager/reports`, after the trainer performance chart:
+- **AI Coaching Tip** analyses top/bottom performers and suggests concrete improvement actions
+- Example: "John Smith leads with 92% attendance and 88% avg scores. Focus on improving Maria's session clarity—her attendance is solid but assessment outcomes lag."
+
+### 4. AI Assessment Chat
+On `/manager/analytics`:
+- Upload Excel assessment results
+- Ask: "Who are the top 5 performers?" or "Which employees need improvement?"
+- AI responds with data-driven insights + suggestions
+
+### 5. AI Quiz Generation
+On `/manager/quizzes`:
+- **Generate from Topic**: Enter "React Hooks" + select difficulty → AI creates 20 questions in 3 seconds
+- **Generate from Content**: Upload a PDF/DOCX training manual → AI extracts key concepts and generates targeted questions
+
+All AI responses are capped at specific token limits to keep OpenAI costs predictable.
+
+---
+
+## Non-Technical User Experience
+
+### For Trainers (zero technical knowledge required)
+1. Log in → see **Trainer Workspace** with 3-step daily guide:
+   - **Step 1**: Mark attendance (before 10 AM cut-off)
+   - **Step 2**: Upload assessment scores (Excel template provided)
+   - **Step 3**: Submit project evaluations
+2. All actions have plain-English labels, example placeholders, and error messages
+3. Late attendance submission prompts: "Why are you submitting after 10 AM? (required if uploading after the cut-off time)" — no jargon
+
+### For Learners (gamified, friendly)
+1. Dashboard shows: "Welcome back, [Name]" + AI personal coach recommendation
+2. Quiz cards say "Refresh due" instead of "Retention pressure"
+3. "You are doing well!" instead of "Anti-gaming pattern detected"
+4. All technical terms replaced with everyday language
+
+---
+
+## Performance & Scalability
+
+- **Database**: Supabase Postgres with Row-Level Security policies on all tables
+- **Auth**: Supabase Auth with role-based redirects
+- **Caching**: React Server Components cache quiz/batch data server-side
+- **AI calls**: Batched where possible; single quiz generation = 1 API call (not 5)
+- **Reports**: PDF/Excel generated server-side, streamed to client
+- **Real-time**: Leaderboard uses Supabase real-time subscriptions
+
+---
+
+## Security & Compliance
+
+- All database access via RLS policies
+- Service role key used only in server-side code
+- Trainer access scoped to assigned batches only
+- Attendance cut-off enforcement with audit trail
+- Email notifications via Resend (GDPR-compliant)
+- No user data sent to AI beyond anonymized stats
+
+---
+
+## Roadmap
+
+- [ ] Multi-language support (i18n)
+- [ ] Mobile app (React Native)
+- [ ] Video training integration
+- [ ] Advanced analytics (predictive failure risk)
+- [ ] Slack/Teams notifications
+- [ ] Custom branding per organization
+
+---
+
+## License
+
+Private. All rights reserved.
+
+---
+
+## Support
+
+For issues or questions, contact: [Your contact email]
+
+---
+
+**Built with ❤️ for training teams who deserve better tools.**

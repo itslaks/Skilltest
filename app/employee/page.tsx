@@ -2,6 +2,7 @@ import { getEmployeeStats, getAvailableQuizzes } from '@/lib/actions/employee'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import { ReadinessMeter } from '@/components/insights/readiness-meter'
+import { AiLearnRecommend } from '@/components/employee/ai-learn-recommend'
 import Link from 'next/link'
 import {
   ArrowRight,
@@ -50,7 +51,7 @@ export default async function EmployeeDashboard() {
         <div className="grid gap-0 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="relative min-w-0 bg-black p-6 text-white md:p-8 dashboard-grid-bg">
             <div className="absolute right-6 top-6 hidden rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60 md:block">
-              Learner Console
+              SkillTest AI · Learner
             </div>
             <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70">
               <Sparkles className="h-3.5 w-3.5 text-cyan-200" />
@@ -115,6 +116,8 @@ export default async function EmployeeDashboard() {
           {nextQuiz?.readiness ? (
             <ReadinessMeter readiness={nextQuiz.readiness} className="border-zinc-200 bg-white text-black shadow-sm" />
           ) : null}
+
+          <AiLearnRecommend stats={stats} quizzes={quizzes || []} retentionRisk={retentionRisk} />
 
           <section className="grid gap-4 md:grid-cols-3">
             {[
@@ -225,7 +228,7 @@ export default async function EmployeeDashboard() {
               <MiniMetric label="Done" value={`${completedQuizzes.length}`} />
             </div>
             <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-              skilltest_ai watches readiness, pace, and retention so each assessment feels like the right next step.
+              SkillTest AI watches your readiness, pace, and retention so each assessment feels like the right next step.
             </p>
           </section>
         </aside>

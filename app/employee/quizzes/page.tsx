@@ -16,10 +16,10 @@ export default async function EmployeeQuizzesPage() {
       <section className="rounded-[2rem] border border-zinc-900 bg-black p-6 text-white shadow-[0_40px_120px_rgba(0,0,0,0.5)] md:p-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">SkillTest Queue</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">Adaptive quiz deck</h1>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">My Assessments</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">Your quizzes and assessments</h1>
             <p className="mt-3 max-w-2xl text-sm text-zinc-400">
-              Every assignment now carries a readiness forecast, retention pressure, and anti-gaming intelligence before you launch.
+              Complete your assigned quizzes to track your learning progress. Each quiz is timed — read the details before you begin.
             </p>
           </div>
           <Button variant="outline" className="rounded-full border-white/15 bg-white/5 text-white hover:bg-white/10" asChild>
@@ -55,8 +55,8 @@ export default async function EmployeeQuizzesPage() {
         ) : (
           <div className="rounded-[2rem] border border-zinc-200 bg-white py-14 text-center">
             <FileQuestion className="mx-auto mb-3 h-14 w-14 text-zinc-300" />
-            <h3 className="font-semibold">No quizzes available</h3>
-            <p className="mt-1 text-sm text-zinc-500">Check back later for fresh adaptive assessments.</p>
+            <h3 className="font-semibold">No quizzes available right now</h3>
+            <p className="mt-1 text-sm text-zinc-500">Your coordinator will assign quizzes to you. Check back later or contact your trainer if you think this is a mistake.</p>
           </div>
         )}
       </section>
@@ -64,7 +64,7 @@ export default async function EmployeeQuizzesPage() {
       {completed.length > 0 && (
         <section>
           <div className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.25em] text-zinc-500">
-            <ShieldAlert className="h-4 w-4" />
+            <Trophy className="h-4 w-4" />
             Completed
           </div>
           <div className="grid gap-5 xl:grid-cols-2">
@@ -99,7 +99,7 @@ function QuizCard({ quiz, status }: { quiz: any; status: string }) {
           )}
           {quiz.retentionCheck?.daysSinceLastAssessment >= 14 && (
             <span className="rounded-full bg-zinc-200 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-zinc-900">
-              Retention due
+              Refresh due
             </span>
           )}
         </div>
@@ -116,9 +116,9 @@ function QuizCard({ quiz, status }: { quiz: any; status: string }) {
 
         <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
           {quiz.retentionCheck?.daysSinceLastAssessment >= 14
-            ? `Knowledge decay check: ${quiz.retentionCheck.daysSinceLastAssessment} days since last ${quiz.topic} assessment.`
+            ? `It's been ${quiz.retentionCheck.daysSinceLastAssessment} days since your last ${quiz.topic} quiz — a good time to refresh your knowledge.`
             : quiz.challengeMode
-              ? 'Anti-gaming pattern detected earlier. This run will bias harder questions.'
+              ? 'You are doing well! This quiz includes some harder questions to keep you growing.'
               : quiz.readiness?.recommendation}
         </div>
 

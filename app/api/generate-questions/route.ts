@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import type { DifficultyLevel } from '@/lib/types/database'
+import { callAI, stripCodeFences } from '@/lib/ai'
 
 const ALL_DIFFICULTIES: DifficultyLevel[] = ['easy', 'medium', 'hard', 'advanced', 'hardcore']
 
@@ -71,47 +72,30 @@ export async function POST(request: NextRequest) {
   // Calculate distribution
   const distribution = calculateDistribution(difficulty, count)
 
-  // Generate questions using the hybrid approach
-  // First try the AI provider if API key is available, then fall back to template-based
-  let questions: any[] = []
+  const hasAI = !!(process.env.OPENAI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY)
 
-  const openaiKey = process.env.OPENAI_API_KEY
-  const geminiKey = process.env.GOOGLE_GEMINI_API_KEY
+  // Single AI call for all difficulty groups, or template fallback
+  const questions = hasAI
+    ? await generateWithAI(topic, distribution)
+    : generateTemplateQuestions(topic, distribution)
 
-  console.log('AI API Keys available:', {
-    openai: !!openaiKey,
-    gemini: !!geminiKey
-  })
+  const finalQuestions = ensureQuestionCount(questions, topic, difficulty, count)
 
-  if (openaiKey) {
-    console.log('Using OpenAI for question generation')
-    questions = await generateWithOpenAI(openaiKey, topic, distribution)
-  } else if (geminiKey) {
-    console.log('Using Gemini for question generation')  
-    questions = await generateWithGemini(geminiKey, topic, distribution)
-  } else {
-    console.log('No AI keys available, falling back to template generation')
-    // Fallback: template-based generation
-    questions = generateTemplateQuestions(topic, distribution)
-  }
+  console.log(`Generated ${finalQuestions.length} questions using ${hasAI ? 'AI' : 'templates'}`)
 
-  questions = ensureQuestionCount(questions, topic, difficulty, count)
-
-  console.log(`Generated ${questions.length} questions using ${openaiKey || geminiKey ? 'AI' : 'templates'}`)
-
-  if (questions.length === 0) {
+  if (finalQuestions.length === 0) {
     return NextResponse.json({ error: 'Failed to generate any questions' }, { status: 500 })
   }
 
   // Insert questions into database
-  const answerPositionPlan = createAnswerPositionPlan(questions.length)
-  const questionsToInsert = questions.map((q, i) => ({
+  const answerPositionPlan = createAnswerPositionPlan(finalQuestions.length)
+  const questionsToInsert = finalQuestions.map((q: any, i: number) => ({
     quiz_id,
     question_text: q.question_text,
     options: randomizeOptions(q.options, answerPositionPlan[i]),
     difficulty: q.difficulty,
     explanation: q.explanation || null,
-    is_ai_generated: !!(openaiKey || geminiKey),
+    is_ai_generated: hasAI,
     order_index: i,
   }))
 
@@ -124,14 +108,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const generationMethod = openaiKey ? 'OpenAI' : geminiKey ? 'Gemini' : 'Template-based'
+  const generationMethod = process.env.OPENAI_API_KEY ? 'OpenAI' : process.env.GOOGLE_GEMINI_API_KEY ? 'Gemini' : 'Template-based'
   
   return NextResponse.json({ 
     data, 
     distribution,
-    generated: questions.length,
+    generated: finalQuestions.length,
     method: generationMethod,
-    success: `Successfully generated ${questions.length} questions using ${generationMethod}`
+    success: `Successfully generated ${finalQuestions.length} questions using ${generationMethod}`
   })
 }
 
@@ -165,176 +149,35 @@ function calculateDistribution(primary: DifficultyLevel, totalCount: number): Re
   return dist as Record<DifficultyLevel, number>
 }
 
-// ─── OpenAI generation ────────────────────────────────────────────────
-async function generateWithOpenAI(apiKey: string, topic: string, distribution: Record<DifficultyLevel, number>) {
-  const questions: any[] = []
+// ─── Single-call AI generation (OpenAI preferred, Gemini fallback) ───
+async function generateWithAI(topic: string, distribution: Record<DifficultyLevel, number>) {
+  // Build all difficulty groups into ONE prompt → one API call, minimal token cost
+  const groups = Object.entries(distribution)
+    .filter(([, count]) => count > 0)
+    .map(([diff, count]) => `${count} questions at "${diff.toUpperCase()}" difficulty`)
 
-  for (const [diff, count] of Object.entries(distribution)) {
-    if (count === 0) continue
+  const prompt = `Generate MCQ questions about "${topic}" in a SINGLE JSON array.
+Required groups: ${groups.join('; ')}.
+Each question: {"question_text":string,"options":[{"text":string,"isCorrect":bool}x4],"explanation":string,"difficulty":string}
+Rules: exactly 4 options, exactly 1 correct per question, match stated difficulty, return ONLY valid JSON array.`
 
-    const difficultyGuidelines = DIFFICULTY_PROMPTS[diff as DifficultyLevel]
+  try {
+    const { text } = await callAI(
+      [
+        { role: 'system', content: 'You are an expert quiz question generator. Output only valid JSON.' },
+        { role: 'user', content: prompt },
+      ],
+      { maxTokens: 4000, temperature: 0.6 }
+    )
 
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [{
-            role: 'system',
-            content: `You are an expert quiz question generator. You MUST create questions at EXACTLY the specified difficulty level.
-
-CRITICAL: The difficulty level MUST be strictly followed. Do not make questions easier or harder than specified.`
-          }, {
-            role: 'user',
-            content: `Generate EXACTLY ${count} multiple choice questions about "${topic}" at "${diff.toUpperCase()}" difficulty level.
-
-DIFFICULTY REQUIREMENTS FOR ${diff.toUpperCase()}:
-${difficultyGuidelines}
-
-REQUIREMENTS:
-1. Questions MUST match the ${diff.toUpperCase()} difficulty level exactly
-2. Each question must have exactly 4 options with only ONE correct answer
-3. Include a brief explanation for the correct answer
-4. Make incorrect options plausible but clearly wrong for someone who knows the material
-
-Return a JSON array where each item has:
-- "question_text": the question
-- "options": array of exactly 4 objects with "text" (string) and "isCorrect" (boolean, exactly one true). Randomize the correct answer position across A, B, C, and D.
-- "explanation": brief explanation of the correct answer
-- "difficulty": "${diff}"
-
-Return ONLY valid JSON, no markdown code blocks.`
-          }],
-          temperature: 0.7,
-        }),
-      })
-
-      const data = await response.json()
-      
-      if (data.error) {
-        console.error(`OpenAI API error for ${diff} difficulty:`, data.error)
-        // Fall back to template for this batch
-        questions.push(...generateTemplateQuestions(topic, { [diff]: count } as any))
-        continue
-      }
-      
-      const content = data.choices?.[0]?.message?.content || '[]'
-      const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      
-      try {
-        const parsed = JSON.parse(cleanedContent)
-        const validQuestions = normalizeQuestions(Array.isArray(parsed) ? parsed : [parsed], diff as DifficultyLevel)
-        
-        if (validQuestions.length === 0) {
-          console.warn(`No valid questions parsed from OpenAI response for ${diff} difficulty`)
-          questions.push(...generateTemplateQuestions(topic, { [diff]: count } as any))
-        } else {
-          console.log(`Generated ${validQuestions.length} ${diff} questions via OpenAI`)
-          questions.push(...validQuestions)
-          if (validQuestions.length < count) {
-            questions.push(...generateTemplateQuestions(topic, { [diff]: count - validQuestions.length } as any))
-          }
-        }
-      } catch (parseError) {
-        console.error(`Failed to parse OpenAI response for ${diff} difficulty:`, parseError)
-        // Fall back to template for this batch
-        questions.push(...generateTemplateQuestions(topic, { [diff]: count } as any))
-      }
-    } catch (e) {
-      console.error(`OpenAI request failed for ${diff} difficulty:`, e)
-      questions.push(...generateTemplateQuestions(topic, { [diff]: count } as any))
-    }
+    const parsed = JSON.parse(stripCodeFences(text))
+    const questions = normalizeQuestions(Array.isArray(parsed) ? parsed : [parsed], 'medium')
+    if (questions.length > 0) return questions
+  } catch (e) {
+    console.error('AI generation failed, falling back to templates:', e)
   }
 
-  return questions
-}
-
-// ─── Gemini generation ────────────────────────────────────────────────
-async function generateWithGemini(apiKey: string, topic: string, distribution: Record<DifficultyLevel, number>) {
-  const questions: any[] = []
-
-  for (const [diff, count] of Object.entries(distribution)) {
-    if (count === 0) continue
-
-    const difficultyGuidelines = DIFFICULTY_PROMPTS[diff as DifficultyLevel]
-
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: `Generate EXACTLY ${count} multiple choice questions about "${topic}" at "${diff.toUpperCase()}" difficulty level.
-
-DIFFICULTY REQUIREMENTS FOR ${diff.toUpperCase()}:
-${difficultyGuidelines}
-
-CRITICAL: Questions MUST match the ${diff.toUpperCase()} difficulty level exactly. Do not make them easier or harder.
-
-REQUIREMENTS:
-1. Each question must have exactly 4 options with only ONE correct answer
-2. Include a brief explanation for the correct answer
-
-Return a JSON array where each item has:
-- "question_text": the question
-- "options": array of exactly 4 objects with "text" (string) and "isCorrect" (boolean, exactly one true). Randomize the correct answer position across A, B, C, and D.
-- "explanation": brief explanation
-- "difficulty": "${diff}"
-
-Return ONLY valid JSON, no markdown.`
-              }]
-            }],
-            generationConfig: {
-              temperature: 0.7,
-            }
-          }),
-        }
-      )
-
-      const data = await response.json()
-      
-      if (data.error) {
-        console.error(`Gemini API error for ${diff} difficulty:`, data.error)
-        // Fall back to template for this batch
-        questions.push(...generateTemplateQuestions(topic, { [diff]: count } as any))
-        continue
-      }
-      
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]'
-      const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      
-      try {
-        const parsed = JSON.parse(cleanedContent)
-        const validQuestions = normalizeQuestions(Array.isArray(parsed) ? parsed : [parsed], diff as DifficultyLevel)
-        
-        if (validQuestions.length === 0) {
-          console.warn(`No valid questions parsed from Gemini response for ${diff} difficulty`)
-          questions.push(...generateTemplateQuestions(topic, { [diff]: count } as any))
-        } else {
-          console.log(`Generated ${validQuestions.length} ${diff} questions via Gemini`)
-          questions.push(...validQuestions)
-          if (validQuestions.length < count) {
-            questions.push(...generateTemplateQuestions(topic, { [diff]: count - validQuestions.length } as any))
-          }
-        }
-      } catch (parseError) {
-        console.error(`Failed to parse Gemini response for ${diff} difficulty:`, parseError)
-        questions.push(...generateTemplateQuestions(topic, { [diff]: count } as any))
-      }
-    } catch (e) {
-      console.error(`Gemini request failed for ${diff} difficulty:`, e)
-      questions.push(...generateTemplateQuestions(topic, { [diff]: count } as any))
-    }
-  }
-
-  return questions
+  return generateTemplateQuestions(topic, distribution)
 }
 
 // ─── Template-based fallback generation ───────────────────────────────

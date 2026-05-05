@@ -430,4 +430,190 @@
       transition-duration: 0.001ms !important;
     }
   }
+
+  /* ── Maverick TMS — Distinctive UI System ─────────────────── */
+
+  /* Asymmetric command cockpit layout */
+  .tms-cockpit-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  @media (min-width: 1280px) {
+    .tms-cockpit-grid {
+      grid-template-columns: 0.62fr 1.38fr;
+    }
+  }
+
+  /* Edge-lit card — left border accent glow */
+  .edge-lit {
+    border-left: 3px solid transparent;
+    background:
+      linear-gradient(#ffffff, #ffffff) padding-box,
+      linear-gradient(180deg, #3b82f6, #06b6d4) border-box;
+    transition: box-shadow 0.2s ease;
+  }
+  .edge-lit:hover {
+    box-shadow: -4px 0 20px rgba(59,130,246,0.18), 0 8px 32px rgba(0,0,0,0.06);
+  }
+
+  /* Edge-lit danger variant */
+  .edge-lit-rose {
+    border-left: 3px solid transparent;
+    background:
+      linear-gradient(#ffffff, #ffffff) padding-box,
+      linear-gradient(180deg, #f43f5e, #fb923c) border-box;
+  }
+
+  /* Edge-lit success variant */
+  .edge-lit-emerald {
+    border-left: 3px solid transparent;
+    background:
+      linear-gradient(#ffffff, #ffffff) padding-box,
+      linear-gradient(180deg, #10b981, #3b82f6) border-box;
+  }
+
+  /* Data-dense stat strip */
+  .stat-strip {
+    display: flex;
+    align-items: stretch;
+    background: linear-gradient(90deg, #09090b, #18181b);
+    border-radius: 1.25rem;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .stat-strip-item {
+    flex: 1;
+    padding: 1.25rem 1rem;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .stat-strip-item:last-child { border-right: none; }
+
+  /* Terminal-style code badge */
+  .terminal-badge {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.55);
+  }
+
+  /* Crosshair focus ring on interactive cards */
+  .crosshair-focus {
+    position: relative;
+  }
+  .crosshair-focus::before,
+  .crosshair-focus::after {
+    content: '';
+    position: absolute;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  .crosshair-focus::before {
+    inset: 0;
+    border: 1.5px solid rgba(59,130,246,0.35);
+    border-radius: inherit;
+  }
+  .crosshair-focus:hover::before { opacity: 1; }
+
+  /* Pulsing alert dot */
+  @keyframes alert-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.6; }
+  }
+  .alert-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f43f5e;
+    animation: alert-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* Gradient number counter — makes big KPI numbers pop */
+  .kpi-number {
+    background: linear-gradient(135deg, #000000 0%, #374151 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi-number-cyan {
+    background: linear-gradient(135deg, #0891b2 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .kpi-number-emerald {
+    background: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .kpi-number-rose {
+    background: linear-gradient(135deg, #e11d48 0%, #f97316 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Split-panel — vertical divider between two panes */
+  .split-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 1024px) {
+    .split-panel {
+      grid-template-columns: 1fr 1px 1fr;
+    }
+    .split-panel-divider {
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,0.08) 40%, rgba(0,0,0,0.08) 60%, transparent);
+    }
+  }
+
+  /* Sidebar nav item morphing indicator */
+  .nav-indicator {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 0;
+    border-radius: 0 3px 3px 0;
+    background: currentColor;
+    transition: height 0.18s ease;
+  }
+  .nav-item-active .nav-indicator { height: 60%; }
+
+  /* Holographic shimmer on dark cards */
+  @keyframes holo-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .holo-shimmer {
+    background: linear-gradient(270deg, #1e3a5f, #0f172a, #1a2744, #0e2340);
+    background-size: 400% 400%;
+    animation: holo-shift 14s ease infinite;
+  }
+
+  /* Progress track for inline % bars */
+  .progress-track {
+    height: 5px;
+    border-radius: 99px;
+    background: rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.5s ease;
+  }
 }

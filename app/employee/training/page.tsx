@@ -36,24 +36,24 @@ export default async function EmployeeTrainingPage() {
       <section className="rounded-[2rem] border border-zinc-900 bg-black p-6 text-white shadow-[0_40px_120px_rgba(0,0,0,0.45)] md:p-8 dashboard-grid-bg">
         <div className="grid gap-6 xl:grid-cols-[0.82fr_1.18fr]">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">Training Command Center</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">Sessions, attendance, reminders, and trainer communication in one place</h1>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-zinc-500">My Training</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">Your training, all in one place</h1>
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-zinc-400">
-              This view makes the operational layer visible for learners too, not just managers. You can now see your batch, upcoming sessions, attendance health, reminders, and submit structured feedback.
+              See your training schedule, upcoming sessions, attendance record, and any reminders from your trainer — all right here. You can also leave feedback once a feedback window is open.
             </p>
           </div>
           <div className="space-y-4">
             <DashboardSignalShowcase
               theme="dark"
-              badge="Learner Ops Layer"
-              title="Utility views feel connected to the product system."
-              subtitle="Daily training surfaces stay clear, consistent, and presentation-ready."
+              badge="Your Training Overview"
+              title="Track your progress and stay on top of your schedule."
+              subtitle="Check back here daily to see sessions, attendance, and reminders from your trainer."
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <StatTile icon={Users} label="My batches" value={`${memberships.length}`} />
               <StatTile icon={CalendarDays} label="Upcoming sessions" value={`${sessions.filter((session: any) => session.status === 'scheduled').length}`} />
               <StatTile icon={ClipboardCheck} label="Attendance health" value={`${attendanceRate}%`} />
-              <StatTile icon={BellRing} label="Unread-style signals" value={`${notifications.length}`} />
+              <StatTile icon={BellRing} label="Reminders" value={`${notifications.length}`} />
             </div>
           </div>
         </div>
@@ -63,7 +63,7 @@ export default async function EmployeeTrainingPage() {
         <Card className="border-zinc-200 shadow-sm spotlight-card">
           <CardHeader>
             <CardTitle>Current Batch & Schedule</CardTitle>
-            <CardDescription>Your training lifecycle is now visible from the learner side as well.</CardDescription>
+            <CardDescription>Your training batch, dates, and the trainer and coordinator assigned to you.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {memberships.length === 0 ? (
@@ -111,7 +111,7 @@ export default async function EmployeeTrainingPage() {
         <Card className="border-zinc-200 shadow-sm spotlight-card">
           <CardHeader>
             <CardTitle>Attendance & Communication</CardTitle>
-            <CardDescription>Operational reminders now reach the learner interface too.</CardDescription>
+            <CardDescription>Your attendance record and any messages or reminders from your trainer.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -160,7 +160,7 @@ export default async function EmployeeTrainingPage() {
         <Card className="border-zinc-200 shadow-sm spotlight-card">
           <CardHeader>
             <CardTitle>Submit Training Feedback</CardTitle>
-            <CardDescription>Feedback opens only during coordinator-controlled collection windows.</CardDescription>
+            <CardDescription>Share your honest thoughts about the training. Feedback is only available during an open feedback window.</CardDescription>
           </CardHeader>
           <CardContent>
             {feedbackWindows.length === 0 ? (
@@ -227,39 +227,39 @@ export default async function EmployeeTrainingPage() {
 
         <Card className="border-zinc-200 shadow-sm spotlight-card">
           <CardHeader>
-            <CardTitle>Why This Matters</CardTitle>
-            <CardDescription>This screen keeps training operations connected with assessments from end to end.</CardDescription>
+            <CardTitle>Why Your Feedback Matters</CardTitle>
+            <CardDescription>Your feedback helps improve training quality for you and future learners.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-[1.5rem] border border-emerald-100 bg-emerald-50 p-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
                 <ShieldCheck className="h-4 w-4" />
-                Operational clarity
+                Your progress is tracked
               </div>
               <p className="mt-3 text-sm text-emerald-800">
-                Learners can now see batch ownership, session cadence, reminders, and attendance signals instead of interacting with isolated assessments only.
+                Your attendance, sessions, and batch details are all visible here. You always know where you stand.
               </p>
             </div>
             <div className="rounded-[1.5rem] border border-amber-100 bg-amber-50 p-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
                 <MessageSquareText className="h-4 w-4" />
-                Closed-loop feedback
+                Your feedback goes directly to the manager
               </div>
               <p className="mt-3 text-sm text-amber-800">
-                Every session can now feed sentiment and action items back to the manager operations console so continuous improvement is part of the platform.
+                When you submit feedback, it is reviewed by your training coordinator to improve session quality and address any issues.
               </p>
             </div>
             <div className="rounded-[1.5rem] border border-blue-100 bg-blue-50 p-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-blue-900">
                 <BellRing className="h-4 w-4" />
-                Actionable reminders
+                Reminders keep you on track
               </div>
               <p className="mt-3 text-sm text-blue-800">
-                Communication is surfaced inside the application so trainers and learners stay aligned around sessions, attendance, and assessments.
+                Whenever your trainer or coordinator sends a reminder, it will appear in the reminders section above so you never miss an update.
               </p>
             </div>
             <Button asChild variant="outline" className="rounded-full">
-              <Link href="/employee/quizzes">Continue to linked assessments</Link>
+              <Link href="/employee/quizzes">Go to my assessments</Link>
             </Button>
           </CardContent>
         </Card>

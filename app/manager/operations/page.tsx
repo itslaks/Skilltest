@@ -20,6 +20,7 @@ import { DashboardSignalShowcase } from '@/components/insights/dashboard-signal-
 import { BatchComparisonChart } from '@/components/manager/batch-comparison-chart'
 import { BatchMemberStatusDropdown } from '@/components/manager/batch-member-status-dropdown'
 import { OpsAutoRefresh } from '@/components/manager/ops-auto-refresh'
+import { FeedbackSentimentChart } from '@/components/manager/feedback-sentiment-chart'
 import { createAdminClient } from '@/lib/supabase/server'
 import {
   BellRing,
@@ -676,8 +677,27 @@ export default async function ManagerOperationsPage() {
         <Card className="border-cyan-200 bg-cyan-50 shadow-sm">
           <CardHeader>
             <CardTitle>Trainer Workspace</CardTitle>
-            <CardDescription>Your access is scoped to assigned batches. Use the attendance tracker, project evaluations, and assessment upload controls below.</CardDescription>
+            <CardDescription>You are logged in as a trainer. You can only see and manage the batches assigned to you.</CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-cyan-200 bg-white p-4">
+                <p className="text-xs font-semibold text-cyan-700 uppercase tracking-wide">Step 1 — After each session</p>
+                <p className="mt-2 text-sm font-medium text-zinc-800">Mark attendance</p>
+                <p className="mt-1 text-xs text-zinc-500">Use the Attendance section below. Upload or record who attended each session. Submit before the cut-off time.</p>
+              </div>
+              <div className="rounded-2xl border border-cyan-200 bg-white p-4">
+                <p className="text-xs font-semibold text-cyan-700 uppercase tracking-wide">Step 2 — After assessments</p>
+                <p className="mt-2 text-sm font-medium text-zinc-800">Upload assessment scores</p>
+                <p className="mt-1 text-xs text-zinc-500">Download the Excel template, fill in scores, and upload it using the Assessment Import section below.</p>
+              </div>
+              <div className="rounded-2xl border border-cyan-200 bg-white p-4">
+                <p className="text-xs font-semibold text-cyan-700 uppercase tracking-wide">Step 3 — For project work</p>
+                <p className="mt-2 text-sm font-medium text-zinc-800">Submit project evaluations</p>
+                <p className="mt-1 text-xs text-zinc-500">Use the Project Evaluation section below to score and comment on each candidate's project submission.</p>
+              </div>
+            </div>
+          </CardContent>
         </Card>
       )}
 
@@ -1264,12 +1284,12 @@ export default async function ManagerOperationsPage() {
 
 function StatCard({ label, value, icon: Icon }: { label: string; value: string; icon: any }) {
   return (
-    <div className="min-w-0 rounded-[1.75rem] border border-white/10 bg-white/5 p-5">
+    <div className="min-w-0 rounded-[1.75rem] border border-white/10 bg-white/5 p-5 crosshair-focus hover:bg-white/[0.08] transition-colors">
       <div className="flex items-center justify-between">
         <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{label}</p>
-        <Icon className="h-4 w-4 text-white" />
+        <Icon className="h-4 w-4 text-white/60" />
       </div>
-      <p className="mt-4 text-3xl font-semibold text-white">{value}</p>
+      <p className="mt-4 text-3xl font-bold text-white">{value}</p>
     </div>
   )
 }
@@ -1294,18 +1314,25 @@ function AutomationSignal({ label, value, detail }: { label: string; value: stri
 }
 
 function ActionTile({ title, value, detail, tone }: { title: string; value: string; detail: string; tone: 'rose' | 'amber' | 'blue' | 'emerald' }) {
-  const tones = {
-    rose: 'border-rose-100 bg-rose-50 text-rose-950',
+  const edgeCls = {
+    rose: 'edge-lit-rose bg-white',
     amber: 'border-amber-100 bg-amber-50 text-amber-950',
-    blue: 'border-blue-100 bg-blue-50 text-blue-950',
-    emerald: 'border-emerald-100 bg-emerald-50 text-emerald-950',
+    blue: 'edge-lit bg-white',
+    emerald: 'edge-lit-emerald bg-white',
   }
+  const numCls = {
+    rose: 'kpi-number-rose',
+    amber: '',
+    blue: 'kpi-number-cyan',
+    emerald: 'kpi-number-emerald',
+  }
+  const textTone = { rose: 'text-rose-950', amber: 'text-amber-950', blue: 'text-zinc-900', emerald: 'text-zinc-900' }
 
   return (
-    <div className={`min-w-0 rounded-[1.5rem] border p-5 shadow-sm ${tones[tone]}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60">{title}</p>
-      <p className="mt-3 text-3xl font-semibold">{value}</p>
-      <p className="mt-2 text-sm leading-relaxed opacity-75">{detail}</p>
+    <div className={`min-w-0 rounded-[1.5rem] border p-5 shadow-sm crosshair-focus ${edgeCls[tone]}`}>
+      <p className={`text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60 ${textTone[tone]}`}>{title}</p>
+      <p className={`mt-3 text-3xl font-bold ${numCls[tone] || textTone[tone]}`}>{value}</p>
+      <p className={`mt-2 text-sm leading-relaxed opacity-70 ${textTone[tone]}`}>{detail}</p>
     </div>
   )
 }
@@ -1397,37 +1424,20 @@ function FeedbackAnalyticsPanel({
   analytics: { total: number; positive: number; neutral: number; negative: number; avgRating: string; avgContent: string; avgTrainer: string }
   batches: Array<{ id: string; title: string }>
 }) {
-  const rows = [
-    { label: 'Positive', value: analytics.positive, tone: 'bg-emerald-500' },
-    { label: 'Neutral', value: analytics.neutral, tone: 'bg-blue-500' },
-    { label: 'Negative', value: analytics.negative, tone: 'bg-rose-500' },
-  ]
   const topBatchLinks = batches.slice(0, 4)
 
   return (
-    <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MiniMetric label="Avg rating" value={analytics.avgRating} />
-        <MiniMetric label="Content quality" value={analytics.avgContent} />
-        <MiniMetric label="Trainer effectiveness" value={analytics.avgTrainer} />
-      </div>
-      <div className="mt-4 space-y-3">
-        {rows.map((row) => {
-          const width = analytics.total ? Math.round((row.value / analytics.total) * 100) : 0
-          return (
-            <div key={row.label} className="grid gap-2">
-              <div className="flex items-center justify-between text-xs font-medium text-zinc-600">
-                <span>{row.label}</span>
-                <span>{row.value} / {analytics.total}</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white">
-                <div className={`h-full rounded-full ${row.tone}`} style={{ width: `${width}%` }} />
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="mt-5 rounded-2xl border border-zinc-200 bg-white p-4">
+    <div className="space-y-4">
+      <FeedbackSentimentChart
+        positive={analytics.positive}
+        neutral={analytics.neutral}
+        negative={analytics.negative}
+        total={analytics.total}
+        avgRating={analytics.avgRating}
+        avgContent={analytics.avgContent}
+        avgTrainer={analytics.avgTrainer}
+      />
+      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-semibold text-zinc-950">Standalone feedback reports</p>

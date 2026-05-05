@@ -21,7 +21,7 @@ export function ManagerHeader({ profile }: ManagerHeaderProps) {
       <div className="flex-1 flex items-center gap-3">
         <div className="hidden xl:flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700">
           <HelpCircle className="h-3.5 w-3.5" />
-          Tip: Start with Create, then Assign, then Analytics
+          Daily tasks: 1) Check alerts → 2) Upload attendance → 3) Upload scores → 4) Download report
         </div>
         <div className="relative max-w-md flex-1 hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />

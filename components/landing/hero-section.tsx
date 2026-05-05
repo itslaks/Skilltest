@@ -33,35 +33,36 @@ export function HeroSection() {
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 lg:px-12 py-24 lg:py-28">
         <div className="mb-8">
-          <span className="inline-flex items-center gap-3 rounded-full border border-sky-200 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm">
-            <span className="w-8 h-px bg-foreground/30" />
-            Made for non-technical training teams
+          <span className="inline-flex items-center gap-3 rounded-full border border-violet-200 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse" />
+            AI-powered training management — built for real teams
           </span>
         </div>
 
         <div className="mb-10">
           <h1 className="text-[clamp(3rem,10vw,8rem)] font-display leading-[0.94] tracking-tight">
-            <span className="block">skilltest_ai</span>
-            <span className="block text-slate-700">for enterprise learning</span>
+            <span className="block">SkillTest</span>
+            <span className="block bg-gradient-to-r from-violet-600 to-cyan-500 bg-clip-text text-transparent">AI</span>
           </h1>
+          <p className="mt-4 text-xl text-slate-600 font-medium max-w-lg">Training management that thinks with you, not just for you.</p>
         </div>
 
         <div className="grid gap-16 xl:grid-cols-[0.85fr_1.15fr] xl:items-center">
           <div className="space-y-8">
             <p className="text-xl lg:text-2xl text-slate-700 leading-relaxed max-w-xl">
-              A clear command center for admins, trainers, coordinators, and learners. Every key action is visible: create batches, upload attendance, add scores, send feedback, and download reports.
+              SkillTest AI combines intelligent quiz generation, training operations, real-time attendance, AI coaching insights, and automated reporting — in one platform built for non-technical teams.
             </p>
 
             <div className="helper-strip rounded-2xl p-4 text-sm leading-relaxed shadow-sm">
-              <p className="font-semibold text-slate-950">Simple operating flow</p>
-              <p className="mt-1 text-slate-700">Create batch, assign candidates and trainers, mark attendance, upload scores, review dashboards, then export reports.</p>
+              <p className="font-semibold text-slate-950">How SkillTest AI works</p>
+              <p className="mt-1 text-slate-700">Create batch → assign candidates → mark attendance → AI generates quizzes → upload scores → AI analyses results → export reports.</p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
               {[
-                { label: "Interface", value: "Executive" },
-                { label: "Operations", value: "Connected" },
-                { label: "Insights", value: "Actionable" },
+                { label: "AI Engine", value: "Built-in" },
+                { label: "Operations", value: "End-to-End" },
+                { label: "Insights", value: "Real-time" },
               ].map((item) => (
                 <div key={item.label} className="rounded-2xl glass-panel p-4">
                   <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">{item.label}</p>

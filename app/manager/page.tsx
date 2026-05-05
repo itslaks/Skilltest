@@ -21,8 +21,13 @@ import {
   ClipboardCheck,
   ShieldAlert,
   CalendarDays,
+  Activity,
+  Target,
+  Zap,
 } from 'lucide-react'
 import { getQuizStats } from '@/lib/actions/quiz'
+import { getTrainingOpsManagerData } from '@/lib/actions/training'
+import { AiInsightCard } from '@/components/manager/ai-insight-card'
 
 export default async function ManagerDashboard() {
   const { userId, role } = await requireTrainingStaff()
@@ -39,6 +44,10 @@ export default async function ManagerDashboard() {
     .single()
 
   const { data: stats } = await getQuizStats()
+
+  // Fetch TMS summary data
+  const tmsData = await getTrainingOpsManagerData().catch(() => null)
+  const tmsSummary = tmsData?.summary ?? null
 
   // Get recent quizzes
   const { data: recentQuizzes } = await supabase
@@ -134,40 +143,40 @@ export default async function ManagerDashboard() {
 
   const statCards = [
     {
+      title: 'Active Batches',
+      value: tmsSummary?.activeBatches ?? 0,
+      icon: Activity,
+      description: 'Running training batches',
+      bgGradient: 'from-cyan-50 to-white',
+      border: 'border-cyan-200',
+      iconBg: 'bg-cyan-600',
+      text: 'text-cyan-900',
+    },
+    {
+      title: 'Attendance Health',
+      value: `${tmsSummary?.attendanceRate ?? 0}%`,
+      icon: ClipboardCheck,
+      description: 'Present/late across sessions',
+      bgGradient: 'from-emerald-50 to-white',
+      border: 'border-emerald-200',
+      iconBg: 'bg-emerald-600',
+      text: 'text-emerald-900',
+    },
+    {
+      title: 'Action Alerts',
+      value: tmsSummary ? tmsSummary.attendanceDueToday + tmsSummary.absenceAlerts + tmsSummary.negativeFeedbackCount : 0,
+      icon: ShieldAlert,
+      description: 'Cut-off misses + absences + feedback',
+      bgGradient: 'from-rose-50 to-white',
+      border: 'border-rose-200',
+      iconBg: 'bg-rose-600',
+      text: 'text-rose-900',
+    },
+    {
       title: 'Total Quizzes',
       value: stats?.totalQuizzes || 0,
       icon: FileQuestion,
-      description: 'Active assessments',
-      bgGradient: 'from-zinc-50 to-white',
-      border: 'border-zinc-200',
-      iconBg: 'bg-black',
-      text: 'text-black',
-    },
-    {
-      title: 'Total Attempts',
-      value: stats?.totalAttempts || 0,
-      icon: CheckCircle2,
-      description: 'Completed assessments',
-      bgGradient: 'from-zinc-50 to-white',
-      border: 'border-zinc-200',
-      iconBg: 'bg-black',
-      text: 'text-black',
-    },
-    {
-      title: 'Average Score',
-      value: `${stats?.averageScore || 0}%`,
-      icon: TrendingUp,
-      description: 'Across all quizzes',
-      bgGradient: 'from-zinc-50 to-white',
-      border: 'border-zinc-200',
-      iconBg: 'bg-black',
-      text: 'text-black',
-    },
-    {
-      title: 'Active Employees',
-      value: stats?.uniqueEmployees || 0,
-      icon: Users,
-      description: 'Have taken quizzes',
+      description: `${stats?.totalAttempts || 0} attempts · ${stats?.averageScore || 0}% avg`,
       bgGradient: 'from-zinc-50 to-white',
       border: 'border-zinc-200',
       iconBg: 'bg-black',
@@ -257,6 +266,18 @@ export default async function ManagerDashboard() {
         />
       </div>
 
+      {/* TMS Live Status Strip */}
+      {tmsSummary && (
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4 xl:grid-cols-6">
+          <TmsStatusPill label="Active Batches" value={`${tmsSummary.activeBatches}`} tone="cyan" href="/manager/operations" />
+          <TmsStatusPill label="Upcoming Sessions" value={`${tmsSummary.upcomingSessions}`} tone="blue" href="/manager/operations" />
+          <TmsStatusPill label="Attendance %" value={`${tmsSummary.attendanceRate}%`} tone="emerald" href="/manager/operations#attendance" />
+          <TmsStatusPill label="Cut-off Misses" value={`${tmsSummary.attendanceDueToday}`} tone={tmsSummary.attendanceDueToday > 0 ? 'rose' : 'zinc'} href="/manager/operations#attendance" />
+          <TmsStatusPill label="Absence Alerts" value={`${tmsSummary.absenceAlerts}`} tone={tmsSummary.absenceAlerts > 0 ? 'amber' : 'zinc'} href="/manager/operations" />
+          <TmsStatusPill label="Candidates Active" value={`${tmsSummary.remainingCandidates}`} tone="violet" href="/manager/operations" />
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
@@ -276,6 +297,15 @@ export default async function ManagerDashboard() {
           </Card>
         ))}
       </div>
+
+      {/* AI Batch Health Insight */}
+      {tmsSummary && (
+        <AiInsightCard
+          type="batch_health"
+          data={{ activeBatches: tmsSummary.activeBatches, attendanceRate: tmsSummary.attendanceRate, absenceAlerts: tmsSummary.absenceAlerts, cutoffMisses: tmsSummary.attendanceDueToday, candidates: tmsSummary.remainingCandidates }}
+          label="AI Dashboard Insight"
+        />
+      )}
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <Card className="border-zinc-200 bg-white shadow-sm">
@@ -613,5 +643,23 @@ export default async function ManagerDashboard() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+function TmsStatusPill({ label, value, tone, href }: { label: string; value: string; tone: string; href: string }) {
+  const tones: Record<string, string> = {
+    cyan: 'border-cyan-200 bg-cyan-50 text-cyan-900 hover:bg-cyan-100',
+    blue: 'border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100',
+    rose: 'border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100',
+    amber: 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100',
+    violet: 'border-violet-200 bg-violet-50 text-violet-900 hover:bg-violet-100',
+    zinc: 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100',
+  }
+  return (
+    <Link href={href} className={`rounded-2xl border px-4 py-3 transition-colors ${tones[tone] ?? tones.zinc}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-60">{label}</p>
+      <p className="mt-1 text-2xl font-bold leading-none">{value}</p>
+    </Link>
   )
 }

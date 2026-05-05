@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
 import type { DifficultyLevel } from '@/lib/types/database'
+import { callAI, stripCodeFences } from '@/lib/ai'
 
 const ALL_DIFFICULTIES: DifficultyLevel[] = ['easy', 'medium', 'hard', 'advanced', 'hardcore']
 
@@ -67,25 +68,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Calculate distribution: 70% primary difficulty, 30% spread across others
   const distribution = calculateStrictDistribution(difficulty, count)
+  const hasAI = !!(process.env.OPENAI_API_KEY || process.env.GOOGLE_GEMINI_API_KEY)
 
-  const openaiKey = process.env.OPENAI_API_KEY
-  const geminiKey = process.env.GOOGLE_GEMINI_API_KEY
-
-  let questions: any[] = []
-
-  if (openaiKey) {
-    questions = await generateFromContentOpenAI(openaiKey, content, distribution, topic)
-  } else if (geminiKey) {
-    questions = await generateFromContentGemini(geminiKey, content, distribution, topic)
-  } else {
-    return NextResponse.json({ 
-      error: 'No AI API key configured. Please set OPENAI_API_KEY or GOOGLE_GEMINI_API_KEY in environment variables.' 
-    }, { status: 500 })
+  if (!hasAI) {
+    return NextResponse.json({ error: 'No AI API key configured. Set OPENAI_API_KEY or GOOGLE_GEMINI_API_KEY.' }, { status: 500 })
   }
 
-  questions = ensureContentQuestionCount(questions, topic || 'Provided content', content, difficulty, count)
+  const rawQuestions = await generateFromContentAI(content, distribution, topic)
+  const questions = ensureContentQuestionCount(rawQuestions, topic || 'Provided content', content, difficulty, count)
 
   if (questions.length === 0) {
     return NextResponse.json({ 
@@ -150,6 +141,43 @@ function calculateStrictDistribution(primary: DifficultyLevel, totalCount: numbe
   }
 
   return dist as Record<DifficultyLevel, number>
+}
+
+// ─── Single-call AI generation from content ───────────────────────────
+async function generateFromContentAI(
+  content: string,
+  distribution: Record<DifficultyLevel, number>,
+  topic?: string
+) {
+  // Truncate content to keep tokens lean (~3000 chars ≈ 750 tokens of context)
+  const truncated = content.length > 3000 ? content.substring(0, 3000) + '...[truncated]' : content
+
+  const groups = Object.entries(distribution)
+    .filter(([, count]) => count > 0)
+    .map(([diff, count]) => `${count} at "${diff.toUpperCase()}"`)
+
+  const prompt = `Generate MCQ questions STRICTLY based on the content below.${topic ? ` Topic: ${topic}.` : ''}
+Required: ${groups.join(', ')}.
+Each question: {"question_text":string,"options":[{"text":string,"isCorrect":bool}x4],"explanation":string,"difficulty":string}
+Rules: 4 options, 1 correct, match stated difficulty, base every question on the content, return ONLY a valid JSON array.
+
+CONTENT:
+${truncated}`
+
+  try {
+    const { text } = await callAI(
+      [
+        { role: 'system', content: 'You are an expert quiz question generator. Output only valid JSON.' },
+        { role: 'user', content: prompt },
+      ],
+      { maxTokens: 4000, temperature: 0.6 }
+    )
+    const parsed = JSON.parse(stripCodeFences(text))
+    return normalizeQuestions(Array.isArray(parsed) ? parsed : [parsed], 'medium' as DifficultyLevel)
+  } catch (e) {
+    console.error('AI content generation failed:', e)
+    return []
+  }
 }
 
 async function generateFromContentOpenAI(

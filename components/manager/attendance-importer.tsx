@@ -161,13 +161,13 @@ export function AttendanceImporter({ sessions }: AttendanceImporterProps) {
               </Button>
             </div>
             <label className="grid gap-2 text-sm">
-              <span className="font-medium">Late upload reason</span>
+              <span className="font-medium">Reason for late submission <span className="text-zinc-400 font-normal">(required if uploading after the cut-off time)</span></span>
               <textarea
                 value={lateReason}
                 onChange={(event) => setLateReason(event.target.value)}
                 rows={2}
                 className="rounded-xl border border-blue-100 bg-white px-3 py-2 text-blue-950 placeholder:text-blue-300"
-                placeholder="Required automatically if this upload is after the configured attendance cut-off."
+                placeholder="Example: System was unavailable earlier. Please explain why attendance is being submitted after the scheduled cut-off time."
               />
             </label>
           </div>

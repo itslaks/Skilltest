@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireManagerForApi } from '@/lib/rbac'
 import { NextRequest, NextResponse } from 'next/server'
+import { callAI, buildCompactAssessmentContext } from '@/lib/ai'
 
 export async function POST(request: NextRequest) {
   const auth = await requireManagerForApi()
@@ -16,9 +17,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    const openaiKey = process.env.OPENAI_API_KEY
-    if (!openaiKey) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
+    if (!process.env.OPENAI_API_KEY && !process.env.GOOGLE_GEMINI_API_KEY) {
+      return NextResponse.json({ error: 'No AI provider configured' }, { status: 500 })
     }
 
     // Create or get session
@@ -48,65 +48,33 @@ export async function POST(request: NextRequest) {
       content: message,
     })
 
-    // Build context from assessment data if provided
+    // Build compact context
     let context = ''
     if (assessmentData && Array.isArray(assessmentData) && assessmentData.length > 0) {
-      context = buildAssessmentContext(assessmentData)
+      context = buildCompactAssessmentContext(assessmentData)
     } else if (quizId) {
-      // Fetch assessment data for this quiz
       const { data: results } = await supabase
         .from('assessment_results')
-        .select('*')
+        .select('candidate_name,candidate_email,percentage,time_taken_minutes,performance_category,percentile')
         .eq('quiz_id', quizId)
         .order('percentage', { ascending: false })
-        .limit(100)
+        .limit(60)
 
-      if (results && results.length > 0) {
-        context = buildAssessmentContext(results)
-      }
+      if (results?.length) context = buildCompactAssessmentContext(results)
     }
 
-    // Call OpenAI
-    const systemPrompt = `You are an intelligent assistant helping managers analyze employee assessment and quiz data. 
-You have access to assessment results data including scores, completion times, performance categories, and more.
+    // Call AI (OpenAI preferred, Gemini fallback)
+    const systemPrompt = `You are a training analytics assistant for managers. Be concise and data-driven.
+${context ? `\nASSESSMENT DATA:\n${context}\n` : 'No data loaded — ask user to provide assessment data.'}
+Rules: identify patterns, give actionable advice, format numbers cleanly, max 3 bullet points per insight.`
 
-${context ? `Here is the current assessment data context:\n${context}\n` : 'No assessment data is currently loaded. Ask the user to upload assessment data first.'}
-
-Provide helpful, data-driven insights. When analyzing:
-- Identify top performers and those needing improvement
-- Calculate statistics like averages, medians, and distributions
-- Highlight trends and patterns
-- Suggest actionable recommendations
-- Be concise but thorough
-
-If asked about specific employees, search the data by name or email.
-Always format numbers nicely and use percentages where appropriate.`
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message },
-        ],
-        max_tokens: 1500,
-        temperature: 0.7,
-      }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('OpenAI error:', errorText)
-      return NextResponse.json({ error: 'Failed to get AI response' }, { status: 500 })
-    }
-
-    const data = await response.json()
-    const assistantMessage = data.choices[0]?.message?.content || 'Sorry, I could not generate a response.'
+    const { text: assistantMessage } = await callAI(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message },
+      ],
+      { maxTokens: 600, temperature: 0.5 }
+    )
 
     // Save assistant message
     await supabase.from('ai_chat_messages').insert({
@@ -124,54 +92,6 @@ Always format numbers nicely and use percentages where appropriate.`
     console.error('AI Chat error:', error)
     return NextResponse.json({ error: error.message || 'Chat failed' }, { status: 500 })
   }
-}
-
-function buildAssessmentContext(data: any[]): string {
-  if (!data || data.length === 0) return ''
-
-  const totalParticipants = data.length
-  const scores = data.map(d => d.percentage || 0).filter(s => s > 0)
-  const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : 0
-  const maxScore = Math.max(...scores, 0)
-  const minScore = Math.min(...scores.filter(s => s > 0), 0)
-
-  const cleared = data.filter(d => d.performance_category?.toLowerCase() === 'cleared').length
-  const passRate = ((cleared / totalParticipants) * 100).toFixed(1)
-
-  const times = data.map(d => d.time_taken_minutes || 0).filter(t => t > 0)
-  const avgTime = times.length > 0 ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : 0
-
-  let context = `
-ASSESSMENT DATA SUMMARY:
-- Total Participants: ${totalParticipants}
-- Average Score: ${avgScore}%
-- Highest Score: ${maxScore}%
-- Lowest Score: ${minScore}%
-- Pass Rate: ${passRate}% (${cleared} cleared)
-- Average Time Taken: ${avgTime} minutes
-
-TOP 10 PERFORMERS:
-${data.slice(0, 10).map((d, i) => 
-  `${i + 1}. ${d.candidate_name} (${d.candidate_email}) - ${d.percentage}% - ${d.time_taken_minutes}min - ${d.performance_category || 'N/A'}`
-).join('\n')}
-
-${data.length > 10 ? `\nAND ${data.length - 10} MORE PARTICIPANTS...` : ''}
-
-DETAILED DATA (for analysis):
-${JSON.stringify(data.slice(0, 50).map(d => ({
-  name: d.candidate_name,
-  email: d.candidate_email,
-  score: d.percentage,
-  correct: d.correct,
-  wrong: d.wrong,
-  total: d.total_questions,
-  time: d.time_taken_minutes,
-  status: d.performance_category,
-  percentile: d.percentile,
-  feedback: d.candidate_feedback,
-})), null, 2)}
-`
-  return context
 }
 
 // GET endpoint to fetch chat history
